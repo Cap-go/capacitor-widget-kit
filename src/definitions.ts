@@ -13,7 +13,7 @@ export interface PluginVersionResult {
  */
 export interface ActivitiesSupportedResult {
   /**
-   * Whether the current device and runtime can run the native workout live activity.
+   * Whether the current device and runtime can run the native template activity bridge.
    */
   supported: boolean;
 
@@ -24,348 +24,754 @@ export interface ActivitiesSupportedResult {
 }
 
 /**
- * Notification behavior for workout timers or session completion.
+ * JSON-safe primitive value.
  */
-export interface WorkoutNotificationSettings {
-  /**
-   * Whether the notification is enabled.
-   */
-  enabled: boolean;
+export type JsonPrimitive = string | number | boolean | null;
 
-  /**
-   * Optional custom title.
-   */
-  title?: string;
-
-  /**
-   * Optional custom body.
-   */
-  body?: string;
+/**
+ * JSON-safe object used as activity state.
+ */
+export interface JsonObject {
+  [key: string]: JsonValue;
 }
 
 /**
- * Convenience type that accepts either a boolean or a full notification object.
+ * JSON-safe array used as activity state.
  */
-export type WorkoutNotificationPreference = boolean | WorkoutNotificationSettings;
+export type JsonArray = JsonValue[];
 
 /**
- * Individual set inside an exercise.
+ * Any JSON-safe value accepted by the plugin.
  */
-export interface WorkoutSet {
-  /**
-   * Optional stable identifier.
-   */
-  id?: string;
-
-  /**
-   * Display label for the set.
-   */
-  title: string;
-
-  /**
-   * Optional recommendation pill shown above the active set.
-   */
-  recommendation?: string | null;
-
-  /**
-   * Millisecond timestamp when the set was completed.
-   */
-  completedAt?: number | null;
-
-  /**
-   * Optional rest timer duration in milliseconds that starts after this set is completed.
-   */
-  timerDurationMs?: number | null;
-
-  /**
-   * Index of the next active exercise after completing this set.
-   */
-  nextExerciseIndex?: number | null;
-
-  /**
-   * Index of the next active set after completing this set.
-   */
-  nextSetIndex?: number | null;
-}
+export type JsonValue = JsonPrimitive | JsonObject | JsonArray;
 
 /**
- * Exercise block displayed inside the workout live activity.
+ * Structured state payload persisted for an activity.
  */
-export interface WorkoutExercise {
+export type SvgTemplateState = JsonObject;
+
+/**
+ * Interactive region overlaid on top of a rendered SVG layout.
+ */
+export interface SvgTemplateHotspot {
   /**
-   * Stable exercise identifier.
+   * Stable hotspot identifier.
    */
   id: string;
 
   /**
-   * Primary exercise title.
+   * Action identifier executed when the region is tapped.
    */
-  title: string;
+  actionId: string;
 
   /**
-   * Secondary exercise subtitle.
+   * X position in the SVG coordinate space.
    */
-  subtitle?: string;
+  x: number;
 
   /**
-   * Optional SF Symbol used when no bundled image is available.
+   * Y position in the SVG coordinate space.
    */
-  iconSystemName?: string;
+  y: number;
 
   /**
-   * Optional bundled asset name for the exercise thumbnail.
+   * Hotspot width in the SVG coordinate space.
    */
-  imageAssetName?: string;
+  width: number;
 
   /**
-   * Ordered sets for the exercise.
+   * Hotspot height in the SVG coordinate space.
    */
-  sets: WorkoutSet[];
+  height: number;
+
+  /**
+   * Optional accessibility label for the interactive region.
+   */
+  label?: string;
+
+  /**
+   * Optional semantic role.
+   */
+  role?: 'button' | 'link';
+
+  /**
+   * Optional static payload forwarded when the hotspot triggers its action.
+   */
+  payload?: JsonObject;
 }
 
 /**
- * Persisted workout session model used by the plugin and widget extension.
+ * SVG layout variant for one WidgetKit surface.
  */
-export interface WorkoutSession {
+export interface SvgTemplateLayout {
   /**
-   * Stable session identifier.
+   * Raw SVG template string.
+   *
+   * The runtime resolves `{{state.*}}`, `{{timers.*}}`, and `{{meta.*}}` placeholders before rendering.
    */
-  sessionId: string;
+  svg: string;
 
   /**
-   * Session title shown in the completed state and widget metadata.
+   * Nominal SVG width used for scaling hotspots.
    */
-  title: string;
+  width: number;
 
   /**
-   * Start timestamp in milliseconds.
+   * Nominal SVG height used for scaling hotspots.
    */
-  startedAt: number;
+  height: number;
 
   /**
-   * Currently active exercise index. Set to `null` when the workout is complete.
+   * Interactive overlay regions.
    */
-  activeExerciseIndex?: number | null;
-
-  /**
-   * Currently active set index. Set to `null` when the workout is complete.
-   */
-  activeSetIndex?: number | null;
-
-  /**
-   * Deep link opened when the live activity body is tapped.
-   */
-  deepLinkUrl?: string;
-
-  /**
-   * Timer notification settings. The plugin accepts either `true`/`false` or a full object.
-   */
-  timerNotifications?: WorkoutNotificationPreference;
-
-  /**
-   * Optional completion notification settings reserved for the host app.
-   */
-  sessionNotifications?: WorkoutNotificationPreference;
-
-  /**
-   * Ordered exercises in the workout.
-   */
-  exercises: WorkoutExercise[];
+  hotspots?: SvgTemplateHotspot[];
 }
 
 /**
- * Options for starting the workout live activity.
+ * Bundle of optional WidgetKit surface layouts.
  */
-export interface StartWorkoutLiveActivityOptions {
+export interface SvgTemplateLayouts {
   /**
-   * Full workout session payload that should be persisted and rendered.
+   * Primary lock-screen / banner layout.
    */
-  session: WorkoutSession;
+  lockScreen: SvgTemplateLayout;
+
+  /**
+   * Optional expanded Dynamic Island layout.
+   */
+  dynamicIslandExpanded?: SvgTemplateLayout;
+
+  /**
+   * Optional compact leading Dynamic Island layout.
+   */
+  dynamicIslandCompactLeading?: SvgTemplateLayout;
+
+  /**
+   * Optional compact trailing Dynamic Island layout.
+   */
+  dynamicIslandCompactTrailing?: SvgTemplateLayout;
+
+  /**
+   * Optional minimal Dynamic Island layout.
+   */
+  dynamicIslandMinimal?: SvgTemplateLayout;
 }
 
 /**
- * Result when starting a workout live activity.
+ * Named WidgetKit surface for one SVG layout variant.
  */
-export interface StartWorkoutLiveActivityResult {
+export type SvgTemplateSurface =
+  | 'lockScreen'
+  | 'dynamicIslandExpanded'
+  | 'dynamicIslandCompactLeading'
+  | 'dynamicIslandCompactTrailing'
+  | 'dynamicIslandMinimal';
+
+/**
+ * Fully resolved SVG layout ready for rendering by the app or widget extension.
+ */
+export interface ResolvedSvgTemplateLayout {
   /**
-   * ActivityKit activity identifier.
+   * Surface that was resolved.
+   */
+  surface: SvgTemplateSurface;
+
+  /**
+   * Activity identifier that owns the layout.
    */
   activityId: string;
 
   /**
-   * Session identifier persisted in the shared App Group store.
+   * Template identifier that produced the layout.
    */
-  sessionId: string;
-}
-
-/**
- * Optional native alert configuration for an activity update.
- */
-export interface WidgetAlertConfiguration {
-  /**
-   * Alert title.
-   */
-  title: string;
+  templateId: string;
 
   /**
-   * Alert body.
+   * Render-ready SVG markup with every placeholder already resolved.
    */
-  body: string;
-}
-
-/**
- * Options for updating an existing workout live activity.
- */
-export interface UpdateWorkoutLiveActivityOptions {
-  /**
-   * Activity identifier returned by `startWorkoutLiveActivity`.
-   */
-  activityId: string;
+  svg: string;
 
   /**
-   * Full replacement session payload.
+   * Nominal width of the SVG coordinate space.
    */
-  session: WorkoutSession;
+  width: number;
 
   /**
-   * Optional native alert shown as part of the update.
+   * Nominal height of the SVG coordinate space.
    */
-  alertConfiguration?: WidgetAlertConfiguration;
-}
-
-/**
- * Options for ending a workout live activity.
- */
-export interface EndWorkoutLiveActivityOptions {
-  /**
-   * Activity identifier returned by `startWorkoutLiveActivity`.
-   */
-  activityId: string;
+  height: number;
 
   /**
-   * Optional final session snapshot to persist before ending the activity.
+   * Interactive regions associated with the layout.
    */
-  session?: WorkoutSession;
-}
-
-/**
- * Options for retrieving a stored workout session.
- */
-export interface GetStoredWorkoutSessionOptions {
-  /**
-   * Session identifier. Preferred lookup key.
-   */
-  sessionId?: string;
+  hotspots: SvgTemplateHotspot[];
 
   /**
-   * Activity identifier when only the activity is known.
+   * Optional widget body deep link.
    */
-  activityId?: string;
-}
-
-/**
- * Stored workout session result payload.
- */
-export interface StoredWorkoutSessionResult {
-  /**
-   * Persisted workout session, or `null` when no matching entry exists.
-   */
-  session: WorkoutSession | null;
-}
-
-/**
- * Options for completing the active set either from the app or from an interactive widget action.
- */
-export interface CompleteWorkoutSetOptions {
-  /**
-   * Session identifier to mutate.
-   */
-  sessionId: string;
+  openUrl?: string;
 
   /**
-   * Optional activity identifier when it is already known.
+   * Current activity status.
    */
-  activityId?: string;
-}
-
-/**
- * Metadata describing a currently known live activity.
- */
-export interface LiveActivityRecord {
-  /**
-   * ActivityKit identifier.
-   */
-  activityId: string;
+  status: 'active' | 'ended';
 
   /**
-   * Associated workout session identifier.
+   * Activity revision used to invalidate stale renders.
    */
-  sessionId: string;
+  revision: number;
 
   /**
-   * Current activity state.
-   */
-  state: 'active' | 'ended';
-
-  /**
-   * Last update timestamp in milliseconds.
+   * Last update timestamp.
    */
   updatedAt: number;
 }
 
 /**
- * Result of listing known workout live activities.
+ * Timer binding exposed to SVG templates.
  */
-export interface ListWorkoutLiveActivitiesResult {
+export interface SvgTemplateTimerDefinition {
   /**
-   * Activity records tracked by the plugin.
+   * Stable timer identifier.
    */
-  activities: LiveActivityRecord[];
+  id: string;
+
+  /**
+   * Optional fixed duration in milliseconds.
+   */
+  durationMs?: number;
+
+  /**
+   * Optional state path that resolves to a duration in milliseconds.
+   *
+   * The path may itself contain `{{...}}` placeholders.
+   */
+  durationPath?: string;
+
+  /**
+   * Optional state path that resolves to the timer start timestamp in milliseconds.
+   *
+   * The path may itself contain `{{...}}` placeholders.
+   */
+  startAtPath?: string;
+
+  /**
+   * When true, the timer starts automatically when the activity is created.
+   */
+  autoStart?: boolean;
+}
+
+/**
+ * Declarative mutation applied to the stored activity state.
+ */
+export interface SvgTemplateStatePatch {
+  /**
+   * Mutation operation.
+   */
+  op: 'set' | 'increment' | 'toggle' | 'unset' | 'timestamp';
+
+  /**
+   * Destination state path.
+   *
+   * The path may itself contain `{{...}}` placeholders.
+   */
+  path: string;
+
+  /**
+   * Optional literal value used by the mutation.
+   */
+  value?: JsonValue;
+
+  /**
+   * Optional source path used to copy a value from the current runtime scope.
+   *
+   * The path may itself contain `{{...}}` placeholders.
+   */
+  valuePath?: string;
+
+  /**
+   * Optional template-resolved value.
+   *
+   * If the string is a single `{{...}}` token, the raw referenced JSON value is copied.
+   * Otherwise the resolved string is stored.
+   */
+  valueTemplate?: string;
+
+  /**
+   * Increment amount for `increment`.
+   */
+  amount?: number;
+}
+
+/**
+ * Declarative timer mutation triggered by an action.
+ */
+export interface SvgTemplateTimerMutation {
+  /**
+   * Mutation operation.
+   */
+  op: 'start' | 'stop' | 'restart' | 'setDuration';
+
+  /**
+   * Target timer identifier.
+   */
+  timerId: string;
+
+  /**
+   * Optional fixed duration override in milliseconds.
+   */
+  durationMs?: number;
+
+  /**
+   * Optional path that resolves to a duration override in milliseconds.
+   *
+   * The path may itself contain `{{...}}` placeholders.
+   */
+  durationPath?: string;
+}
+
+/**
+ * Declarative action attached to one or more hotspots.
+ */
+export interface SvgTemplateActionDefinition {
+  /**
+   * Stable action identifier.
+   */
+  id: string;
+
+  /**
+   * Optional event name used in the action log.
+   */
+  eventName?: string;
+
+  /**
+   * Optional UI label.
+   */
+  label?: string;
+
+  /**
+   * Ordered state mutations executed when the action runs.
+   */
+  patches?: SvgTemplateStatePatch[];
+
+  /**
+   * Ordered timer mutations executed when the action runs.
+   */
+  timerMutations?: SvgTemplateTimerMutation[];
+
+  /**
+   * Optional deep link opened by the host widget when the action runs.
+   */
+  openUrl?: string;
+}
+
+/**
+ * Generic SVG template definition stored by the plugin.
+ */
+export interface SvgTemplateDefinition {
+  /**
+   * Stable template identifier.
+   */
+  id: string;
+
+  /**
+   * Optional version marker for migrations.
+   */
+  version?: string;
+
+  /**
+   * Available WidgetKit layouts.
+   */
+  layouts: SvgTemplateLayouts;
+
+  /**
+   * Optional declarative actions.
+   */
+  actions?: SvgTemplateActionDefinition[];
+
+  /**
+   * Optional timer definitions exposed to the template runtime.
+   */
+  timers?: SvgTemplateTimerDefinition[];
+
+  /**
+   * Optional JSON metadata mirrored in the runtime scope under `meta.template`.
+   */
+  metadata?: JsonObject;
+}
+
+/**
+ * Persisted timer runtime state.
+ */
+export interface SvgTemplateTimerState {
+  /**
+   * Timer identifier.
+   */
+  id: string;
+
+  /**
+   * Start timestamp in milliseconds, or `null` when the timer is idle.
+   */
+  startedAt?: number | null;
+
+  /**
+   * Current timer duration in milliseconds.
+   */
+  durationMs: number;
+
+  /**
+   * Current timer status.
+   */
+  status: 'idle' | 'running' | 'finished' | 'stopped';
+
+  /**
+   * Last update timestamp.
+   */
+  updatedAt: number;
+}
+
+/**
+ * Stored activity snapshot returned by the plugin.
+ */
+export interface SvgTemplateActivityRecord {
+  /**
+   * Stable plugin activity identifier.
+   */
+  activityId: string;
+
+  /**
+   * Full template definition.
+   */
+  definition: SvgTemplateDefinition;
+
+  /**
+   * Persisted JSON state.
+   */
+  state: SvgTemplateState;
+
+  /**
+   * Timer runtime state keyed by timer id.
+   */
+  timers: Record<string, SvgTemplateTimerState>;
+
+  /**
+   * Current lifecycle status.
+   */
+  status: 'active' | 'ended';
+
+  /**
+   * Optional deep link opened when the widget body is tapped.
+   */
+  openUrl?: string;
+
+  /**
+   * Last update timestamp.
+   */
+  updatedAt: number;
+
+  /**
+   * Monotonic revision incremented on every state change.
+   */
+  revision: number;
+}
+
+/**
+ * Event emitted whenever a declarative action is executed.
+ */
+export interface SvgTemplateActionEvent {
+  /**
+   * Stable event identifier.
+   */
+  eventId: string;
+
+  /**
+   * Activity identifier associated with the event.
+   */
+  activityId: string;
+
+  /**
+   * Action identifier that produced the event.
+   */
+  actionId: string;
+
+  /**
+   * Optional event name copied from the action definition.
+   */
+  eventName?: string;
+
+  /**
+   * Optional source identifier, typically the hotspot id that triggered the action.
+   */
+  sourceId?: string;
+
+  /**
+   * Event creation timestamp in milliseconds.
+   */
+  createdAt: number;
+
+  /**
+   * Timestamp in milliseconds when the app acknowledged the event.
+   */
+  acknowledgedAt?: number | null;
+
+  /**
+   * Optional caller-provided payload.
+   */
+  payload?: JsonObject | null;
+
+  /**
+   * State snapshot after the action was applied.
+   */
+  state: SvgTemplateState;
+
+  /**
+   * Timer snapshot after the action was applied.
+   */
+  timers: Record<string, SvgTemplateTimerState>;
+}
+
+/**
+ * Options for starting a generic SVG template activity.
+ */
+export interface StartTemplateActivityOptions {
+  /**
+   * Optional explicit activity identifier. When omitted, the native runtime creates one.
+   */
+  activityId?: string;
+
+  /**
+   * Generic SVG template definition.
+   */
+  definition: SvgTemplateDefinition;
+
+  /**
+   * Initial JSON state exposed under `state.*`.
+   */
+  state: SvgTemplateState;
+
+  /**
+   * Optional deep link used when the widget body is tapped.
+   */
+  openUrl?: string;
+}
+
+/**
+ * Result when starting a generic template activity.
+ */
+export interface StartTemplateActivityResult {
+  /**
+   * Stored activity snapshot.
+   */
+  activity: SvgTemplateActivityRecord;
+}
+
+/**
+ * Options for updating an existing template activity.
+ */
+export interface UpdateTemplateActivityOptions {
+  /**
+   * Activity identifier returned by `startTemplateActivity`.
+   */
+  activityId: string;
+
+  /**
+   * Optional replacement definition.
+   */
+  definition?: SvgTemplateDefinition;
+
+  /**
+   * Optional replacement state.
+   */
+  state?: SvgTemplateState;
+
+  /**
+   * Optional replacement deep link.
+   */
+  openUrl?: string;
+}
+
+/**
+ * Result when reading or updating a single activity.
+ */
+export interface TemplateActivityResult {
+  /**
+   * Stored activity snapshot, or `null` when not found.
+   */
+  activity: SvgTemplateActivityRecord | null;
+}
+
+/**
+ * Options for ending a template activity.
+ */
+export interface EndTemplateActivityOptions {
+  /**
+   * Activity identifier returned by `startTemplateActivity`.
+   */
+  activityId: string;
+
+  /**
+   * Optional final state persisted before ending.
+   */
+  state?: SvgTemplateState;
+}
+
+/**
+ * Options for executing a declarative action.
+ */
+export interface PerformTemplateActionOptions {
+  /**
+   * Activity identifier returned by `startTemplateActivity`.
+   */
+  activityId: string;
+
+  /**
+   * Action identifier declared in the template definition.
+   */
+  actionId: string;
+
+  /**
+   * Optional source identifier, typically the hotspot id that triggered the action.
+   */
+  sourceId?: string;
+
+  /**
+   * Optional payload stored with the emitted event and exposed to declarative patches under `{{action.payload.*}}`.
+   */
+  payload?: JsonObject;
+}
+
+/**
+ * Result after executing an action.
+ */
+export interface PerformTemplateActionResult {
+  /**
+   * Updated activity snapshot.
+   */
+  activity: SvgTemplateActivityRecord;
+
+  /**
+   * Action event emitted by the runtime.
+   */
+  event: SvgTemplateActionEvent;
+}
+
+/**
+ * Options for reading one stored activity.
+ */
+export interface GetTemplateActivityOptions {
+  /**
+   * Activity identifier to load.
+   */
+  activityId: string;
+}
+
+/**
+ * Result when listing stored activities.
+ */
+export interface ListTemplateActivitiesResult {
+  /**
+   * Stored activity snapshots.
+   */
+  activities: SvgTemplateActivityRecord[];
+}
+
+/**
+ * Options when listing action events.
+ */
+export interface ListTemplateEventsOptions {
+  /**
+   * Optional activity filter.
+   */
+  activityId?: string;
+
+  /**
+   * When true, only unacknowledged events are returned.
+   */
+  unacknowledgedOnly?: boolean;
+}
+
+/**
+ * Result when listing action events.
+ */
+export interface ListTemplateEventsResult {
+  /**
+   * Matching action events.
+   */
+  events: SvgTemplateActionEvent[];
+}
+
+/**
+ * Options for acknowledging events after the host app processes them.
+ */
+export interface AcknowledgeTemplateEventsOptions {
+  /**
+   * Optional explicit event ids to acknowledge.
+   */
+  eventIds?: string[];
+
+  /**
+   * Optional activity id shortcut that acknowledges every event for the activity.
+   */
+  activityId?: string;
 }
 
 /**
  * Capacitor bridge for an iOS-first WidgetKit / Live Activities plugin.
  *
- * This package intentionally uses a native workout session model instead of a raw SVG renderer.
- * Static SVG snapshots are fine for passive home widgets, but the requested workout experience
- * requires native ActivityKit features such as interactivity, countdown rendering, and shared
- * App Group persistence.
+ * The core abstraction is a generic SVG template activity:
+ * - raw SVG templates with binding placeholders
+ * - declarative action patches
+ * - timer bindings exposed to the template scope
+ * - event logging so the host app can process button results later
+ *
+ * The plugin owns shared persistence, declarative action execution, and event retrieval.
+ * The host widget extension keeps full freedom over actual WidgetKit rendering.
  */
 export interface CapgoWidgetKitPlugin {
   /**
-   * Check whether the native workout live activity can run on the current device.
+   * Check whether the native template activity bridge can run on the current device.
    */
   areActivitiesSupported(): Promise<ActivitiesSupportedResult>;
 
   /**
-   * Start the workout live activity and persist the session in the shared App Group store.
+   * Persist a generic SVG template activity and start the matching native Live Activity bridge.
    */
-  startWorkoutLiveActivity(options: StartWorkoutLiveActivityOptions): Promise<StartWorkoutLiveActivityResult>;
+  startTemplateActivity(options: StartTemplateActivityOptions): Promise<StartTemplateActivityResult>;
 
   /**
-   * Replace the stored workout session and push a matching ActivityKit update.
+   * Replace part or all of the stored activity definition/state.
    */
-  updateWorkoutLiveActivity(options: UpdateWorkoutLiveActivityOptions): Promise<void>;
+  updateTemplateActivity(options: UpdateTemplateActivityOptions): Promise<TemplateActivityResult>;
 
   /**
-   * End the workout live activity while optionally persisting one last session snapshot.
+   * End a running activity while optionally persisting one last state snapshot.
    */
-  endWorkoutLiveActivity(options: EndWorkoutLiveActivityOptions): Promise<void>;
+  endTemplateActivity(options: EndTemplateActivityOptions): Promise<void>;
 
   /**
-   * Complete the current active set and advance to the next exercise/set pair.
+   * Execute one declarative action and record the resulting event.
    */
-  completeWorkoutSet(options: CompleteWorkoutSetOptions): Promise<StoredWorkoutSessionResult>;
+  performTemplateAction(options: PerformTemplateActionOptions): Promise<PerformTemplateActionResult>;
 
   /**
-   * Read a session back from the shared store.
+   * Read one activity back from the shared store.
    */
-  getStoredWorkoutSession(options: GetStoredWorkoutSessionOptions): Promise<StoredWorkoutSessionResult>;
+  getTemplateActivity(options: GetTemplateActivityOptions): Promise<TemplateActivityResult>;
 
   /**
-   * List activity identifiers currently known by the plugin.
+   * List every activity currently known by the plugin.
    */
-  listWorkoutLiveActivities(): Promise<ListWorkoutLiveActivitiesResult>;
+  listTemplateActivities(): Promise<ListTemplateActivitiesResult>;
+
+  /**
+   * List stored action events so the app can react to widget interactions later.
+   */
+  listTemplateEvents(options?: ListTemplateEventsOptions): Promise<ListTemplateEventsResult>;
+
+  /**
+   * Mark previously processed events as acknowledged.
+   */
+  acknowledgeTemplateEvents(options: AcknowledgeTemplateEventsOptions): Promise<void>;
 
   /**
    * Return the platform implementation version marker.

@@ -1,0 +1,36 @@
+appId: app.capgo.widgetkit.exampleapp
+tags:
+  - android
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "Generic SVG activity engine"
+    timeout: 20000
+- assertVisible: "Drive the generic template runtime"
+- tapOn: "Check Support"
+- extendedWaitUntil:
+    visible: "Supported"
+    timeout: 15000
+- tapOn: "Start Demo Template"
+- extendedWaitUntil:
+    visible: "Active .*"
+    timeout: 15000
+- tapOn: "Run Action In App"
+- tapOn: "Read Stored Activity"
+- tapOn: "Read Event Log"
+- extendedWaitUntil:
+    visible: "1 pending"
+    timeout: 15000
+- tapOn: "Acknowledge Events"
+- extendedWaitUntil:
+    visible: "0 pending"
+    timeout: 15000
+- tapOn: "Run Action In App"
+- tapOn: "Get Plugin Version"
+- assertVisible: "8.0.0"
+- tapOn: "End Activity"
+- extendedWaitUntil:
+    visible: "Not started"
+    timeout: 15000
+

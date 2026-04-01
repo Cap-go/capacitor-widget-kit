@@ -1,13 +1,13 @@
 import Foundation
 
 enum CapgoWidgetKitBridgeError: LocalizedError {
-    case missingSession
+    case missingObject(String)
     case invalidObject(String)
 
     var errorDescription: String? {
         switch self {
-        case .missingSession:
-            return "The `session` object is required."
+        case .missingObject(let name):
+            return "The `\(name)` object is required."
         case .invalidObject(let message):
             return message
         }
@@ -15,13 +15,10 @@ enum CapgoWidgetKitBridgeError: LocalizedError {
 }
 
 public final class CapgoWidgetKit {
-    private let encoder = JSONEncoder()
-    private let decoder = JSONDecoder()
-
     public init() {}
 
     public func areActivitiesSupported() -> [String: Any] {
-        let result = WorkoutLiveActivityManager.shared.areActivitiesSupported()
+        let result = TemplateLiveActivityManager.shared.areActivitiesSupported()
         var payload: [String: Any] = ["supported": result.0]
         if let reason = result.1 {
             payload["reason"] = reason
@@ -29,70 +26,91 @@ public final class CapgoWidgetKit {
         return payload
     }
 
-    public func startWorkoutLiveActivity(sessionObject: [String: Any]) async throws -> [String: Any] {
-        let session = try decodeSession(from: sessionObject)
-        let result = try await WorkoutLiveActivityManager.shared.start(session: session)
+    public func startTemplateActivity(
+        activityId: String?,
+        definitionObject: [String: Any],
+        stateObject: [String: Any],
+        openUrl: String?
+    ) async throws -> [String: Any] {
+        let envelope = try await TemplateLiveActivityManager.shared.start(
+            activityId: activityId,
+            definitionObject: definitionObject,
+            stateObject: stateObject,
+            openUrl: openUrl
+        )
+        return ["activity": try TemplateRuntime.serializeActivity(envelope)]
+    }
+
+    public func updateTemplateActivity(
+        activityId: String,
+        definitionObject: [String: Any]?,
+        stateObject: [String: Any]?,
+        openUrl: String?
+    ) async throws -> [String: Any] {
+        let envelope = try await TemplateLiveActivityManager.shared.update(
+            activityId: activityId,
+            definitionObject: definitionObject,
+            stateObject: stateObject,
+            openUrl: openUrl
+        )
+
+        if let envelope {
+            return ["activity": try TemplateRuntime.serializeActivity(envelope)]
+        }
+
+        return ["activity": NSNull()]
+    }
+
+    public func endTemplateActivity(activityId: String, stateObject: [String: Any]?) async throws {
+        try await TemplateLiveActivityManager.shared.end(activityId: activityId, finalStateObject: stateObject)
+    }
+
+    public func performTemplateAction(
+        activityId: String,
+        actionId: String,
+        sourceId: String?,
+        payloadObject: [String: Any]?
+    ) async throws -> [String: Any] {
+        let (envelope, event) = try await TemplateLiveActivityManager.shared.performAction(
+            activityId: activityId,
+            actionId: actionId,
+            sourceId: sourceId,
+            payloadObject: payloadObject
+        )
+
         return [
-            "activityId": result.activityId,
-            "sessionId": result.sessionId
+            "activity": try TemplateRuntime.serializeActivity(envelope),
+            "event": try TemplateRuntime.serializeEvent(event)
         ]
     }
 
-    public func updateWorkoutLiveActivity(activityId: String, sessionObject: [String: Any]) async throws {
-        let session = try decodeSession(from: sessionObject)
-        try await WorkoutLiveActivityManager.shared.update(activityId: activityId, session: session)
-    }
-
-    public func endWorkoutLiveActivity(activityId: String, sessionObject: [String: Any]?) async throws {
-        let finalSession = try sessionObject.map(decodeSession(from:))
-        try await WorkoutLiveActivityManager.shared.end(activityId: activityId, finalSession: finalSession)
-    }
-
-    public func completeWorkoutSet(sessionId: String, activityId: String?) async throws -> [String: Any] {
-        let session = try await WorkoutLiveActivityManager.shared.completeSet(sessionId: sessionId, activityId: activityId)
-        return ["session": try encodeSession(session) as Any]
-    }
-
-    public func getStoredWorkoutSession(sessionId: String?, activityId: String?) throws -> [String: Any] {
-        let session = try WorkoutLiveActivityManager.shared.storedSession(sessionId: sessionId, activityId: activityId)
-        if let session {
-            return ["session": try encodeSession(session)]
+    public func getTemplateActivity(activityId: String) throws -> [String: Any] {
+        guard let envelope = try TemplateLiveActivityManager.shared.activity(activityId: activityId) else {
+            return ["activity": NSNull()]
         }
-        return ["session": NSNull()]
+        return ["activity": try TemplateRuntime.serializeActivity(envelope)]
     }
 
-    public func listWorkoutLiveActivities() throws -> [String: Any] {
-        let activities = try WorkoutLiveActivityManager.shared.listActivities().map { info in
-            [
-                "activityId": info.activityId,
-                "sessionId": info.sessionId,
-                "state": info.state,
-                "updatedAt": info.updatedAtMs
-            ]
-        }
+    public func listTemplateActivities() throws -> [String: Any] {
+        let store = try TemplateActivityStore.make()
+        let activities = try store.listEnvelopes().map(TemplateRuntime.serializeActivity)
         return ["activities": activities]
+    }
+
+    public func listTemplateEvents(activityId: String?, unacknowledgedOnly: Bool) throws -> [String: Any] {
+        let events = try TemplateLiveActivityManager.shared
+            .listEvents(activityId: activityId, unacknowledgedOnly: unacknowledgedOnly)
+            .map(TemplateRuntime.serializeEvent)
+        return ["events": events]
+    }
+
+    public func acknowledgeTemplateEvents(activityId: String?, eventIds: [String]?) throws {
+        try TemplateLiveActivityManager.shared.acknowledgeEvents(activityId: activityId, eventIds: eventIds)
     }
 
     public func getPluginVersion() -> [String: Any] {
         [
             "version": Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "ios"
         ]
-    }
-
-    private func decodeSession(from object: [String: Any]) throws -> WorkoutSession {
-        guard JSONSerialization.isValidJSONObject(object) else {
-            throw CapgoWidgetKitBridgeError.invalidObject("The workout session payload contains unsupported values.")
-        }
-        let data = try JSONSerialization.data(withJSONObject: object, options: [])
-        return try decoder.decode(WorkoutSession.self, from: data)
-    }
-
-    private func encodeSession(_ session: WorkoutSession) throws -> [String: Any] {
-        let data = try encoder.encode(session)
-        let jsonObject = try JSONSerialization.jsonObject(with: data, options: [])
-        guard let dictionary = jsonObject as? [String: Any] else {
-            throw CapgoWidgetKitBridgeError.invalidObject("Failed to encode the workout session for JavaScript.")
-        }
-        return dictionary
     }
 }

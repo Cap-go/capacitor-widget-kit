@@ -1,48 +1,64 @@
 # Example App for `@capgo/capacitor-widget-kit`
 
-This Vite app demonstrates the workout JSON flow used by the plugin:
+This Capacitor example app demonstrates the generic SVG template flow used by the plugin:
 
-- start a workout live activity
-- complete sets from the app side
-- read the stored session back from the shared store
+- start a template activity
+- resolve the lock-screen SVG surface
+- trigger declarative actions from the app and hotspot overlays
+- inspect the stored activity and event log
+- acknowledge processed events
 - end the activity
 
-## Run the browser preview
+The included workout flow is just one helper built on top of the generic API.
+
+## Run the native iOS example
 
 ```bash
 bun install
-bun run start
+bunx cap sync ios
+open ios/App/App.xcodeproj
 ```
 
-The browser preview uses the plugin's web fallback store, so you can validate the state transitions without native tooling.
+The native iOS host is configured to launch a real Live Activity through the plugin. The widget extension sample lives in `widget-extension/ExampleWidgetBundle.swift`.
 
-## Run the Maestro smoke test
+## Run the native Android example
+
+```bash
+bun install
+bunx cap sync android
+open android
+```
+
+The Android host updates the shared template store. If the sample widget provider has been added to the home screen, it refreshes from that stored template state.
+
+## Run the native Maestro smoke tests
 
 From the plugin root:
 
 ```bash
-bun run test:maestro
+bun run test:maestro:ios
 ```
 
-This starts the Vite preview server for the example app and runs a headless Maestro browser flow that covers:
+If you have an Android emulator already running:
+
+```bash
+bun run test:maestro:android
+```
+
+The native flows cover:
 
 - support detection
-- starting the demo activity
-- completing sets from the app
-- reading the shared store back
+- starting the demo template
+- triggering declarative actions from the native host app
+- reading the stored activity and event log
+- acknowledging events
 - ending the activity
 - checking the plugin version output
 
-## Add iOS
+## Native wiring notes
 
-```bash
-bunx cap add ios
-bunx cap sync ios
-```
-
-Then:
-
-1. Add `NSSupportsLiveActivities` to the app `Info.plist`.
-2. Add a shared App Group to the app and widget extension.
-3. Set `CapgoWidgetKitAppGroup` in both `Info.plist` files.
-4. Create a Widget Extension target and use the sample bundle in `widget-extension/ExampleWidgetBundle.swift`.
+1. Add `NSSupportsLiveActivities` to the iOS app `Info.plist`.
+2. Add the same shared App Group to the iOS app target and widget extension target.
+3. Set `CapgoWidgetKitAppGroup` in both iOS `Info.plist` files.
+4. Use the sample iOS widget bundle in `widget-extension/ExampleWidgetBundle.swift` and replace the placeholder view with your SVG renderer.
+5. On Android, add the sample `TemplateSampleWidgetProvider` to your app and place the widget on the home screen. The plugin updates the stored template state, and the provider resolves and renders it.

@@ -7,12 +7,14 @@ public class CapgoWidgetKitPlugin: CAPPlugin, CAPBridgedPlugin {
     public let jsName = "CapgoWidgetKit"
     public let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "areActivitiesSupported", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "startWorkoutLiveActivity", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "updateWorkoutLiveActivity", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "endWorkoutLiveActivity", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "completeWorkoutSet", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "getStoredWorkoutSession", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "listWorkoutLiveActivities", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "startTemplateActivity", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "updateTemplateActivity", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "endTemplateActivity", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "performTemplateAction", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "getTemplateActivity", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "listTemplateActivities", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "listTemplateEvents", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "acknowledgeTemplateEvents", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "getPluginVersion", returnType: CAPPluginReturnPromise)
     ]
 
@@ -22,71 +24,24 @@ public class CapgoWidgetKitPlugin: CAPPlugin, CAPBridgedPlugin {
         call.resolve(implementation.areActivitiesSupported())
     }
 
-    @objc func startWorkoutLiveActivity(_ call: CAPPluginCall) {
-        guard let session = call.getObject("session") else {
-            call.reject(CapgoWidgetKitBridgeError.missingSession.localizedDescription)
+    @objc func startTemplateActivity(_ call: CAPPluginCall) {
+        guard let definition = call.getObject("definition") else {
+            call.reject(CapgoWidgetKitBridgeError.missingObject("definition").localizedDescription)
+            return
+        }
+
+        guard let state = call.getObject("state") else {
+            call.reject(CapgoWidgetKitBridgeError.missingObject("state").localizedDescription)
             return
         }
 
         Task {
             do {
-                let result = try await implementation.startWorkoutLiveActivity(sessionObject: session)
-                call.resolve(result)
-            } catch {
-                call.reject(error.localizedDescription)
-            }
-        }
-    }
-
-    @objc func updateWorkoutLiveActivity(_ call: CAPPluginCall) {
-        guard let activityId = call.getString("activityId") else {
-            call.reject("The `activityId` is required.")
-            return
-        }
-
-        guard let session = call.getObject("session") else {
-            call.reject(CapgoWidgetKitBridgeError.missingSession.localizedDescription)
-            return
-        }
-
-        Task {
-            do {
-                try await implementation.updateWorkoutLiveActivity(activityId: activityId, sessionObject: session)
-                call.resolve()
-            } catch {
-                call.reject(error.localizedDescription)
-            }
-        }
-    }
-
-    @objc func endWorkoutLiveActivity(_ call: CAPPluginCall) {
-        guard let activityId = call.getString("activityId") else {
-            call.reject("The `activityId` is required.")
-            return
-        }
-
-        let session = call.getObject("session")
-        Task {
-            do {
-                try await implementation.endWorkoutLiveActivity(activityId: activityId, sessionObject: session)
-                call.resolve()
-            } catch {
-                call.reject(error.localizedDescription)
-            }
-        }
-    }
-
-    @objc func completeWorkoutSet(_ call: CAPPluginCall) {
-        guard let sessionId = call.getString("sessionId") else {
-            call.reject("The `sessionId` is required.")
-            return
-        }
-
-        Task {
-            do {
-                let payload = try await implementation.completeWorkoutSet(
-                    sessionId: sessionId,
-                    activityId: call.getString("activityId")
+                let payload = try await implementation.startTemplateActivity(
+                    activityId: call.getString("activityId"),
+                    definitionObject: definition,
+                    stateObject: state,
+                    openUrl: call.getString("openUrl")
                 )
                 call.resolve(payload)
             } catch {
@@ -95,21 +50,115 @@ public class CapgoWidgetKitPlugin: CAPPlugin, CAPBridgedPlugin {
         }
     }
 
-    @objc func getStoredWorkoutSession(_ call: CAPPluginCall) {
+    @objc func updateTemplateActivity(_ call: CAPPluginCall) {
+        guard let activityId = call.getString("activityId") else {
+            call.reject("The `activityId` is required.")
+            return
+        }
+
+        Task {
+            do {
+                let payload = try await implementation.updateTemplateActivity(
+                    activityId: activityId,
+                    definitionObject: call.getObject("definition"),
+                    stateObject: call.getObject("state"),
+                    openUrl: call.getString("openUrl")
+                )
+                call.resolve(payload)
+            } catch {
+                call.reject(error.localizedDescription)
+            }
+        }
+    }
+
+    @objc func endTemplateActivity(_ call: CAPPluginCall) {
+        guard let activityId = call.getString("activityId") else {
+            call.reject("The `activityId` is required.")
+            return
+        }
+
+        Task {
+            do {
+                try await implementation.endTemplateActivity(
+                    activityId: activityId,
+                    stateObject: call.getObject("state")
+                )
+                call.resolve()
+            } catch {
+                call.reject(error.localizedDescription)
+            }
+        }
+    }
+
+    @objc func performTemplateAction(_ call: CAPPluginCall) {
+        guard let activityId = call.getString("activityId") else {
+            call.reject("The `activityId` is required.")
+            return
+        }
+
+        guard let actionId = call.getString("actionId") else {
+            call.reject("The `actionId` is required.")
+            return
+        }
+
+        Task {
+            do {
+                let payload = try await implementation.performTemplateAction(
+                    activityId: activityId,
+                    actionId: actionId,
+                    sourceId: call.getString("sourceId"),
+                    payloadObject: call.getObject("payload")
+                )
+                call.resolve(payload)
+            } catch {
+                call.reject(error.localizedDescription)
+            }
+        }
+    }
+
+    @objc func getTemplateActivity(_ call: CAPPluginCall) {
+        guard let activityId = call.getString("activityId") else {
+            call.reject("The `activityId` is required.")
+            return
+        }
+
         do {
-            let payload = try implementation.getStoredWorkoutSession(
-                sessionId: call.getString("sessionId"),
-                activityId: call.getString("activityId")
-            )
-            call.resolve(payload)
+            call.resolve(try implementation.getTemplateActivity(activityId: activityId))
         } catch {
             call.reject(error.localizedDescription)
         }
     }
 
-    @objc func listWorkoutLiveActivities(_ call: CAPPluginCall) {
+    @objc func listTemplateActivities(_ call: CAPPluginCall) {
         do {
-            call.resolve(try implementation.listWorkoutLiveActivities())
+            call.resolve(try implementation.listTemplateActivities())
+        } catch {
+            call.reject(error.localizedDescription)
+        }
+    }
+
+    @objc func listTemplateEvents(_ call: CAPPluginCall) {
+        do {
+            call.resolve(
+                try implementation.listTemplateEvents(
+                    activityId: call.getString("activityId"),
+                    unacknowledgedOnly: call.getBool("unacknowledgedOnly") ?? false
+                )
+            )
+        } catch {
+            call.reject(error.localizedDescription)
+        }
+    }
+
+    @objc func acknowledgeTemplateEvents(_ call: CAPPluginCall) {
+        let eventIds = call.getArray("eventIds", String.self)
+
+        do {
+            try implementation.acknowledgeTemplateEvents(
+                activityId: call.getString("activityId"),
+                eventIds: eventIds
+            )
+            call.resolve()
         } catch {
             call.reject(error.localizedDescription)
         }

@@ -1,56 +1,55 @@
 import { WebPlugin } from '@capacitor/core';
 
 import type {
+  AcknowledgeTemplateEventsOptions,
   ActivitiesSupportedResult,
   CapgoWidgetKitPlugin,
-  CompleteWorkoutSetOptions,
-  EndWorkoutLiveActivityOptions,
-  GetStoredWorkoutSessionOptions,
-  ListWorkoutLiveActivitiesResult,
-  LiveActivityRecord,
+  EndTemplateActivityOptions,
+  GetTemplateActivityOptions,
+  ListTemplateActivitiesResult,
+  ListTemplateEventsOptions,
+  ListTemplateEventsResult,
+  PerformTemplateActionOptions,
+  PerformTemplateActionResult,
   PluginVersionResult,
-  StartWorkoutLiveActivityOptions,
-  StartWorkoutLiveActivityResult,
-  StoredWorkoutSessionResult,
-  UpdateWorkoutLiveActivityOptions,
-  WorkoutSession,
-  WorkoutSet,
+  StartTemplateActivityOptions,
+  StartTemplateActivityResult,
+  SvgTemplateActionEvent,
+  SvgTemplateActivityRecord,
+  TemplateActivityResult,
+  UpdateTemplateActivityOptions,
 } from './definitions';
-
-type WebActivityState = {
-  activityId: string;
-  sessionId: string;
-  state: 'active' | 'ended';
-  updatedAt: number;
-};
+import { acknowledgeEvents, applyTemplateAction, createTemplateActivityRecord, reconcileTimerStates } from './runtime';
 
 type WebStore = {
-  activities: Record<string, WebActivityState>;
-  sessions: Record<string, WorkoutSession>;
+  activities: Record<string, SvgTemplateActivityRecord>;
+  events: Record<string, SvgTemplateActionEvent>;
 };
 
-const STORE_KEY = 'capgo-widget-kit-preview-store';
+const STORE_KEY = 'capgo-widget-kit-preview-store-v2';
 
-function cloneSession<T>(value: T): T {
+function cloneJson<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
 
 function loadStore(): WebStore {
   if (typeof localStorage === 'undefined') {
-    return { activities: {}, sessions: {} };
+    return { activities: {}, events: {} };
   }
+
   const raw = localStorage.getItem(STORE_KEY);
   if (!raw) {
-    return { activities: {}, sessions: {} };
+    return { activities: {}, events: {} };
   }
+
   try {
     const parsed = JSON.parse(raw) as WebStore;
     return {
       activities: parsed.activities ?? {},
-      sessions: parsed.sessions ?? {},
+      events: parsed.events ?? {},
     };
   } catch {
-    return { activities: {}, sessions: {} };
+    return { activities: {}, events: {} };
   }
 }
 
@@ -61,136 +60,144 @@ function saveStore(store: WebStore): void {
   localStorage.setItem(STORE_KEY, JSON.stringify(store));
 }
 
-function getSessionId(options: GetStoredWorkoutSessionOptions, store: WebStore): string | undefined {
-  if (options.sessionId) {
-    return options.sessionId;
-  }
-  if (options.activityId) {
-    return store.activities[options.activityId]?.sessionId;
-  }
-  return undefined;
+function sortActivities(activities: SvgTemplateActivityRecord[]): SvgTemplateActivityRecord[] {
+  return activities.sort((left, right) => right.updatedAt - left.updatedAt);
 }
 
-function completeActiveSet(session: WorkoutSession): WorkoutSession {
-  const nextSession = cloneSession(session);
-  const exerciseIndex = nextSession.activeExerciseIndex;
-  const setIndex = nextSession.activeSetIndex;
+function sortEvents(events: SvgTemplateActionEvent[]): SvgTemplateActionEvent[] {
+  return events.sort((left, right) => right.createdAt - left.createdAt);
+}
 
-  if (exerciseIndex == null || setIndex == null) {
-    return nextSession;
+function getActivityOrThrow(store: WebStore, activityId: string): SvgTemplateActivityRecord {
+  const activity = store.activities[activityId];
+  if (!activity) {
+    throw new Error(`Activity ${activityId} was not found in the preview store.`);
   }
-
-  const exercise = nextSession.exercises[exerciseIndex];
-  const workoutSet: WorkoutSet | undefined = exercise?.sets[setIndex];
-  if (!exercise || !workoutSet) {
-    return nextSession;
-  }
-
-  const now = Date.now();
-  workoutSet.completedAt = now;
-  nextSession.activeExerciseIndex = workoutSet.nextExerciseIndex ?? null;
-  nextSession.activeSetIndex = workoutSet.nextSetIndex ?? null;
-
-  return nextSession;
+  return cloneJson(activity);
 }
 
 export class CapgoWidgetKitWeb extends WebPlugin implements CapgoWidgetKitPlugin {
   async areActivitiesSupported(): Promise<ActivitiesSupportedResult> {
     return {
       supported: false,
-      reason: 'WidgetKit preview mode only. Run the example app on iOS 17+ for native ActivityKit behavior.',
+      reason:
+        'WidgetKit preview mode only. The generic template runtime works in the browser, but native ActivityKit support is available on iOS 16.2+.',
     };
   }
 
-  async startWorkoutLiveActivity(options: StartWorkoutLiveActivityOptions): Promise<StartWorkoutLiveActivityResult> {
-    const activityId = crypto.randomUUID();
-    const updatedAt = Date.now();
+  async startTemplateActivity(options: StartTemplateActivityOptions): Promise<StartTemplateActivityResult> {
     const store = loadStore();
-
-    store.sessions[options.session.sessionId] = cloneSession(options.session);
-    store.activities[activityId] = {
-      activityId,
-      sessionId: options.session.sessionId,
-      state: 'active',
-      updatedAt,
-    };
+    const activity = createTemplateActivityRecord(options.definition, options.state, {
+      activityId: options.activityId,
+      openUrl: options.openUrl,
+    });
+    store.activities[activity.activityId] = activity;
     saveStore(store);
+    return { activity: cloneJson(activity) };
+  }
 
+  async updateTemplateActivity(options: UpdateTemplateActivityOptions): Promise<TemplateActivityResult> {
+    const store = loadStore();
+    const current = getActivityOrThrow(store, options.activityId);
+    const now = Date.now();
+
+    const nextActivity: SvgTemplateActivityRecord = {
+      ...current,
+      definition: cloneJson(options.definition ?? current.definition),
+      state: cloneJson(options.state ?? current.state),
+      openUrl: options.openUrl ?? current.openUrl,
+      updatedAt: now,
+      revision: current.revision + 1,
+    };
+    nextActivity.timers = reconcileTimerStates(
+      nextActivity.definition,
+      nextActivity.state,
+      nextActivity.timers,
+      nextActivity.activityId,
+      nextActivity.status,
+      now,
+    );
+
+    store.activities[nextActivity.activityId] = nextActivity;
+    saveStore(store);
+    return { activity: cloneJson(nextActivity) };
+  }
+
+  async endTemplateActivity(options: EndTemplateActivityOptions): Promise<void> {
+    const store = loadStore();
+    const current = getActivityOrThrow(store, options.activityId);
+    const now = Date.now();
+
+    const nextActivity: SvgTemplateActivityRecord = {
+      ...current,
+      state: cloneJson(options.state ?? current.state),
+      status: 'ended',
+      updatedAt: now,
+      revision: current.revision + 1,
+    };
+    nextActivity.timers = reconcileTimerStates(
+      nextActivity.definition,
+      nextActivity.state,
+      nextActivity.timers,
+      nextActivity.activityId,
+      nextActivity.status,
+      now,
+    );
+
+    store.activities[nextActivity.activityId] = nextActivity;
+    saveStore(store);
+  }
+
+  async performTemplateAction(options: PerformTemplateActionOptions): Promise<PerformTemplateActionResult> {
+    const store = loadStore();
+    const activity = getActivityOrThrow(store, options.activityId);
+    const result = applyTemplateAction(activity, options);
+    store.activities[result.activity.activityId] = result.activity;
+    store.events[result.event.eventId] = result.event;
+    saveStore(store);
     return {
-      activityId,
-      sessionId: options.session.sessionId,
+      activity: cloneJson(result.activity),
+      event: cloneJson(result.event),
     };
   }
 
-  async updateWorkoutLiveActivity(options: UpdateWorkoutLiveActivityOptions): Promise<void> {
+  async getTemplateActivity(options: GetTemplateActivityOptions): Promise<TemplateActivityResult> {
     const store = loadStore();
     const activity = store.activities[options.activityId];
-    if (!activity) {
-      throw new Error(`Activity ${options.activityId} not found in preview store.`);
-    }
-
-    store.sessions[options.session.sessionId] = cloneSession(options.session);
-    activity.updatedAt = Date.now();
-    activity.sessionId = options.session.sessionId;
-    saveStore(store);
-  }
-
-  async endWorkoutLiveActivity(options: EndWorkoutLiveActivityOptions): Promise<void> {
-    const store = loadStore();
-    const activity = store.activities[options.activityId];
-    if (!activity) {
-      return;
-    }
-    if (options.session) {
-      store.sessions[options.session.sessionId] = cloneSession(options.session);
-      activity.sessionId = options.session.sessionId;
-    }
-    activity.state = 'ended';
-    activity.updatedAt = Date.now();
-    saveStore(store);
-  }
-
-  async completeWorkoutSet(options: CompleteWorkoutSetOptions): Promise<StoredWorkoutSessionResult> {
-    const store = loadStore();
-    const session = store.sessions[options.sessionId];
-    if (!session) {
-      return { session: null };
-    }
-
-    const nextSession = completeActiveSet(session);
-    store.sessions[options.sessionId] = nextSession;
-
-    const activity = options.activityId
-      ? store.activities[options.activityId]
-      : Object.values(store.activities).find(
-          (candidate) => candidate.sessionId === options.sessionId && candidate.state === 'active',
-        );
-
-    if (activity) {
-      activity.updatedAt = Date.now();
-    }
-
-    saveStore(store);
-    return { session: cloneSession(nextSession) };
-  }
-
-  async getStoredWorkoutSession(options: GetStoredWorkoutSessionOptions): Promise<StoredWorkoutSessionResult> {
-    const store = loadStore();
-    const sessionId = getSessionId(options, store);
     return {
-      session: sessionId ? cloneSession(store.sessions[sessionId] ?? null) : null,
+      activity: activity ? cloneJson(activity) : null,
     };
   }
 
-  async listWorkoutLiveActivities(): Promise<ListWorkoutLiveActivitiesResult> {
+  async listTemplateActivities(): Promise<ListTemplateActivitiesResult> {
     const store = loadStore();
-    const activities: LiveActivityRecord[] = Object.values(store.activities).map((activity) => ({
-      activityId: activity.activityId,
-      sessionId: activity.sessionId,
-      state: activity.state,
-      updatedAt: activity.updatedAt,
-    }));
-    return { activities };
+    return {
+      activities: sortActivities(Object.values(store.activities).map((activity) => cloneJson(activity))),
+    };
+  }
+
+  async listTemplateEvents(options?: ListTemplateEventsOptions): Promise<ListTemplateEventsResult> {
+    const store = loadStore();
+    const filtered = Object.values(store.events).filter((event) => {
+      if (options?.activityId && event.activityId !== options.activityId) {
+        return false;
+      }
+      if (options?.unacknowledgedOnly && event.acknowledgedAt != null) {
+        return false;
+      }
+      return true;
+    });
+
+    return {
+      events: sortEvents(filtered.map((event) => cloneJson(event))),
+    };
+  }
+
+  async acknowledgeTemplateEvents(options: AcknowledgeTemplateEventsOptions): Promise<void> {
+    const store = loadStore();
+    const nextEvents = acknowledgeEvents(Object.values(store.events), options);
+    store.events = Object.fromEntries(nextEvents.map((event) => [event.eventId, event]));
+    saveStore(store);
   }
 
   async getPluginVersion(): Promise<PluginVersionResult> {

@@ -164,12 +164,15 @@ We always support both **CocoaPods** and **Swift Package Manager (SPM)**. Every 
 
 ## API Documentation
 
-API docs in the README are auto-generated from JSDoc in `src/definitions.ts`. **Never edit the `<docgen-index>` or `<docgen-api>` sections in `README.md` directly.** Instead, update `src/definitions.ts` and run `bun run docgen`.
+API docs in the README are auto-generated from JSDoc in `src/definitions.ts`. **Never edit the `<docgen-index>` or `<docgen-api>` sections in `README.md` directly.** Instead, update `src/definitions.ts` and run `bun run docgen`. Document any important default or future-major default candidate in `src/definitions.ts` so the next Capacitor major upgrade can change it deliberately.
 
 ## Versioning
 
 - New plugins must start at version `8.0.0` (Capacitor 8 baseline).
+- The plugin major version must always follow the Capacitor major version.
 - By default, ship and maintain Capacitor 8 support first.
+- Do not introduce breaking changes in `src/definitions.ts` unless explicitly asked or the current definition is broken or unusable.
+- Document any important default or future-major default candidate in `src/definitions.ts` so the next Capacitor major upgrade can change it deliberately.
 - Backward compatibility for older Capacitor majors is supported on demand.
 - Ship breaking changes only with a Capacitor major migration.
 

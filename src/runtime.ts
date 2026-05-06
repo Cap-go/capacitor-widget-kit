@@ -9,6 +9,7 @@ import type {
   SvgTemplateActivityRecord,
   SvgTemplateActionEvent,
   SvgTemplateDefinition,
+  SvgTemplateFrameMutation,
   SvgTemplateLayout,
   SvgTemplateSurface,
   SvgTemplateState,
@@ -190,21 +191,44 @@ function coerceInt(value: JsonValue | undefined): number | undefined {
   return undefined;
 }
 
+function timerElapsedMs(timer: SvgTemplateTimerState, nowMs: number): number {
+  const savedElapsedMs = Math.max(0, Math.round(timer.elapsedMs ?? 0));
+  if (timer.status === 'finished' && timer.durationMs > 0) {
+    return timer.durationMs;
+  }
+  if (timer.status === 'running' && timer.startedAt != null) {
+    return savedElapsedMs + Math.max(0, nowMs - timer.startedAt);
+  }
+  return savedElapsedMs;
+}
+
 function timerStatus(timer: SvgTemplateTimerState, nowMs: number): SvgTemplateTimerState['status'] {
   if (timer.status === 'stopped') {
     return 'stopped';
   }
-  if (timer.startedAt == null || timer.durationMs <= 0) {
+
+  const elapsedMs = timerElapsedMs(timer, nowMs);
+  if (timer.durationMs <= 0) {
     return 'idle';
   }
-  return timer.startedAt + timer.durationMs <= nowMs ? 'finished' : 'running';
+  if (elapsedMs >= timer.durationMs) {
+    return 'finished';
+  }
+  if (timer.status === 'paused') {
+    return 'paused';
+  }
+  if (timer.startedAt != null) {
+    return 'running';
+  }
+  return elapsedMs > 0 ? 'paused' : 'idle';
 }
 
 function buildTimerBinding(timer: SvgTemplateTimerState, nowMs: number): JsonObject {
-  const startedAt = timer.startedAt ?? null;
+  const status = timerStatus(timer, nowMs);
+  const startedAt = status === 'running' ? (timer.startedAt ?? null) : null;
   const durationMs = timer.durationMs;
-  const elapsedMs = startedAt == null ? 0 : Math.max(0, nowMs - startedAt);
-  const remainingMs = startedAt == null ? 0 : Math.max(0, startedAt + durationMs - nowMs);
+  const elapsedMs = Math.min(timerElapsedMs(timer, nowMs), durationMs > 0 ? durationMs : Number.MAX_SAFE_INTEGER);
+  const remainingMs = durationMs > 0 ? Math.max(0, durationMs - elapsedMs) : 0;
   const progress = durationMs > 0 ? Math.min(Math.max(elapsedMs / durationMs, 0), 1) : 0;
   const totalSeconds = Math.max(0, Math.ceil(remainingMs / 1000));
   const minutes = Math.floor(totalSeconds / 60);
@@ -214,14 +238,15 @@ function buildTimerBinding(timer: SvgTemplateTimerState, nowMs: number): JsonObj
     id: timer.id,
     startedAtMs: startedAt,
     durationMs,
-    status: timerStatus(timer, nowMs),
+    status,
     elapsedMs,
     remainingMs,
     progress,
     progressPct: Math.round(progress * 10000) / 100,
-    isActive: timerStatus(timer, nowMs) === 'running',
+    isActive: status === 'running',
+    isPaused: status === 'paused',
     remainingText: `${minutes}:${String(seconds).padStart(2, '0')}`,
-    endsAtMs: startedAt == null ? null : startedAt + durationMs,
+    endsAtMs: startedAt == null ? null : startedAt + Math.max(0, durationMs - (timer.elapsedMs ?? 0)),
   };
 }
 
@@ -387,15 +412,22 @@ export function reconcileTimerStates(
   for (const timerDefinition of definition.timers ?? []) {
     const previous = existing[timerDefinition.id];
     const durationMs = resolveDuration(timerDefinition, activity, nowMs) || previous?.durationMs || 0;
-    const startedAt = previous?.startedAt ?? resolveStartAt(timerDefinition, activity, nowMs);
+    const hasStartAtPath = typeof timerDefinition.startAtPath === 'string' && timerDefinition.startAtPath.length > 0;
+    const startedAt =
+      previous?.startedAt ?? (!previous || hasStartAtPath ? resolveStartAt(timerDefinition, activity, nowMs) : null);
     const timer: SvgTemplateTimerState = {
       id: timerDefinition.id,
       startedAt,
+      elapsedMs: Math.max(0, Math.round(previous?.elapsedMs ?? 0)),
       durationMs,
       status: previous?.status ?? (startedAt == null ? 'idle' : 'running'),
       updatedAt: nowMs,
     };
     timer.status = timerStatus(timer, nowMs);
+    if (timer.status === 'finished') {
+      timer.startedAt = null;
+      timer.elapsedMs = timer.durationMs;
+    }
     nextTimers[timer.id] = timer;
     activity.timers[timer.id] = timer;
   }
@@ -475,6 +507,125 @@ function findTimerDefinition(
   return activity.definition.timers?.find((candidate) => candidate.id === timerId);
 }
 
+function resolveFrameId(
+  frameIdTemplate: string | undefined,
+  activity: SvgTemplateActivityRecord,
+  nowMs: number,
+  action?: ActionRuntimeScope,
+  mode: 'literal' | 'path' = 'literal',
+): string | undefined {
+  if (!frameIdTemplate) {
+    return undefined;
+  }
+
+  const exact = exactTokenValue(frameIdTemplate, activity, nowMs, action);
+  if (exact !== undefined) {
+    return stringifyValue(exact);
+  }
+
+  const resolved = resolveTemplateString(frameIdTemplate, activity, nowMs, action);
+  if (mode === 'path') {
+    const referenced = resolveReference(resolved, activity, nowMs, action);
+    if (referenced !== undefined) {
+      return stringifyValue(referenced);
+    }
+  }
+  return resolved || undefined;
+}
+
+function frameIdsForMutation(activity: SvgTemplateActivityRecord, mutation: SvgTemplateFrameMutation): string[] {
+  if (mutation.frameIds && mutation.frameIds.length > 0) {
+    return mutation.frameIds;
+  }
+
+  const surface = mutation.surface;
+  if (!surface) {
+    return [];
+  }
+
+  return activity.definition.layouts[surface]?.frames?.map((frame) => frame.id) ?? [];
+}
+
+function normalizeFrameMutationId(frameId: string | undefined, frameIds: string[]): string | undefined {
+  if (!frameId) {
+    return undefined;
+  }
+  return frameIds.length === 0 || frameIds.includes(frameId) ? frameId : undefined;
+}
+
+function applyFrameMutation(
+  activity: SvgTemplateActivityRecord,
+  mutation: SvgTemplateFrameMutation,
+  nowMs: number,
+  action?: ActionRuntimeScope,
+): void {
+  const targetPath = resolveRuntimePath(mutation.path, activity, nowMs, action);
+  if (!targetPath) {
+    return;
+  }
+
+  const frameIds = frameIdsForMutation(activity, mutation);
+  const currentValue = stringifyValue(getValueAtPath(activity.state, targetPath));
+  const currentIndex = frameIds.indexOf(currentValue);
+  const wraps = mutation.wrap ?? true;
+  let nextFrameId: string | undefined;
+
+  switch (mutation.op) {
+    case 'set':
+      nextFrameId = resolveFrameId(mutation.frameId, activity, nowMs, action);
+      break;
+    case 'toggle': {
+      const alternateFrameId = resolveFrameId(mutation.frameId, activity, nowMs, action);
+      if (frameIds.length >= 2) {
+        nextFrameId = currentValue === frameIds[0] ? frameIds[1] : frameIds[0];
+      } else if (alternateFrameId) {
+        nextFrameId = currentValue === alternateFrameId ? frameIds[0] : alternateFrameId;
+      }
+      break;
+    }
+    case 'next': {
+      if (frameIds.length === 0) {
+        break;
+      }
+      const nextIndex = currentIndex < 0 ? 0 : currentIndex + 1;
+      nextFrameId = frameIds[nextIndex] ?? (wraps ? frameIds[0] : currentValue);
+      break;
+    }
+    case 'previous': {
+      if (frameIds.length === 0) {
+        break;
+      }
+      const nextIndex = currentIndex < 0 ? frameIds.length - 1 : currentIndex - 1;
+      nextFrameId = frameIds[nextIndex] ?? (wraps ? frameIds[frameIds.length - 1] : currentValue);
+      break;
+    }
+    default:
+      break;
+  }
+
+  nextFrameId = normalizeFrameMutationId(nextFrameId, frameIds);
+  if (nextFrameId) {
+    setValueAtPath(activity.state, targetPath, nextFrameId);
+  }
+}
+
+function pauseTimer(timer: SvgTemplateTimerState, nowMs: number): void {
+  timer.elapsedMs = Math.min(timer.durationMs, timerElapsedMs(timer, nowMs));
+  timer.startedAt = null;
+  timer.status = timerStatus(timer, nowMs);
+}
+
+function resumeTimer(timer: SvgTemplateTimerState, nowMs: number): void {
+  if (timer.status === 'stopped') {
+    return;
+  }
+  if (timer.status !== 'paused') {
+    timer.elapsedMs = 0;
+  }
+  timer.startedAt = nowMs;
+  timer.status = timer.durationMs > 0 ? 'running' : 'idle';
+}
+
 function applyTimerMutation(
   activity: SvgTemplateActivityRecord,
   mutation: SvgTemplateTimerMutation,
@@ -484,6 +635,7 @@ function applyTimerMutation(
   const timer = activity.timers[mutation.timerId] ?? {
     id: mutation.timerId,
     startedAt: null,
+    elapsedMs: 0,
     durationMs: 0,
     status: 'idle' as const,
     updatedAt: nowMs,
@@ -514,17 +666,38 @@ function applyTimerMutation(
     timer.durationMs;
 
   timer.durationMs = Math.max(0, Math.round(resolvedDuration));
+  timer.elapsedMs = Math.max(0, Math.round(timer.elapsedMs ?? 0));
   timer.updatedAt = nowMs;
 
   switch (mutation.op) {
     case 'start':
     case 'restart':
+      timer.elapsedMs = 0;
       timer.startedAt = nowMs;
       timer.status = timer.durationMs > 0 ? 'running' : 'idle';
       break;
+    case 'pause':
+      pauseTimer(timer, nowMs);
+      break;
+    case 'resume':
+      resumeTimer(timer, nowMs);
+      break;
+    case 'toggle':
+      if (timerStatus(timer, nowMs) === 'running') {
+        pauseTimer(timer, nowMs);
+      } else {
+        resumeTimer(timer, nowMs);
+      }
+      break;
     case 'stop':
+      timer.elapsedMs = 0;
       timer.startedAt = null;
       timer.status = 'stopped';
+      break;
+    case 'reset':
+      timer.elapsedMs = 0;
+      timer.startedAt = null;
+      timer.status = 'idle';
       break;
     case 'setDuration':
       timer.status = timerStatus(timer, nowMs);
@@ -534,7 +707,30 @@ function applyTimerMutation(
   }
 
   timer.status = timerStatus(timer, nowMs);
+  if (timer.status === 'finished') {
+    timer.elapsedMs = timer.durationMs;
+    timer.startedAt = null;
+  }
   activity.timers[mutation.timerId] = timer;
+}
+
+function resolveLayoutFrame(
+  layout: SvgTemplateLayout,
+  activity: SvgTemplateActivityRecord,
+  nowMs: number,
+): { frameId?: string; svg: string; hotspots: SvgTemplateLayout['hotspots'] } {
+  const frames = layout.frames ?? [];
+  const requestedFrameId = resolveFrameId(layout.frameIdPath, activity, nowMs, undefined, 'path');
+  const requestedFrame = requestedFrameId == null ? undefined : frames.find((frame) => frame.id === requestedFrameId);
+  const defaultFrame =
+    layout.defaultFrameId == null ? undefined : frames.find((frame) => frame.id === layout.defaultFrameId);
+  const selectedFrame = requestedFrame ?? defaultFrame ?? (layout.svg == null ? frames[0] : undefined);
+
+  return {
+    frameId: selectedFrame?.id,
+    svg: selectedFrame?.svg ?? layout.svg ?? '',
+    hotspots: selectedFrame?.hotspots ?? layout.hotspots ?? [],
+  };
 }
 
 export function resolveSvgLayout(
@@ -542,7 +738,7 @@ export function resolveSvgLayout(
   activity: SvgTemplateActivityRecord,
   nowMs = Date.now(),
 ): string {
-  return resolveTemplateString(layout.svg, activity, nowMs);
+  return resolveTemplateString(resolveLayoutFrame(layout, activity, nowMs).svg, activity, nowMs);
 }
 
 export function getTemplateLayout(
@@ -562,14 +758,17 @@ export function resolveTemplateSurface(
     return null;
   }
 
+  const resolvedFrame = resolveLayoutFrame(layout, activity, nowMs);
+
   return {
     surface,
     activityId: activity.activityId,
     templateId: activity.definition.id,
-    svg: resolveSvgLayout(layout, activity, nowMs),
+    frameId: resolvedFrame.frameId,
+    svg: resolveTemplateString(resolvedFrame.svg, activity, nowMs),
     width: layout.width,
     height: layout.height,
-    hotspots: cloneJson(layout.hotspots ?? []),
+    hotspots: cloneJson(resolvedFrame.hotspots ?? []),
     openUrl: activity.openUrl,
     status: activity.status,
     revision: activity.revision,
@@ -631,6 +830,9 @@ export function applyTemplateAction(
   const nextActivity = cloneJson(activity);
   for (const patch of definition.patches ?? []) {
     applyStatePatch(nextActivity, patch, nowMs, actionScope);
+  }
+  for (const mutation of definition.frameMutations ?? []) {
+    applyFrameMutation(nextActivity, mutation, nowMs, actionScope);
   }
   for (const mutation of definition.timerMutations ?? []) {
     applyTimerMutation(nextActivity, mutation, nowMs, actionScope);

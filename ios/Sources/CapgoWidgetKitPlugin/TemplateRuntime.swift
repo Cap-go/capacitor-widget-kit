@@ -76,7 +76,7 @@ struct TemplateRuntimeRecord {
     }
 }
 
-// swiftlint:disable type_body_length force_try function_parameter_count identifier_name
+// swiftlint:disable type_body_length force_try function_parameter_count identifier_name file_length
 enum TemplateRuntime {
     private static let tokenRegex = try! NSRegularExpression(pattern: #"\{\{\s*([^{}]+?)\s*\}\}"#)
     private static let exactTokenRegex = try! NSRegularExpression(pattern: #"^\{\{\s*([^{}]+?)\s*\}\}$"#)
@@ -169,6 +169,19 @@ enum TemplateRuntime {
             }
         }
 
+        if let frameMutations = action["frameMutations"] as? [[String: Any]] {
+            for mutation in frameMutations {
+                applyFrameMutation(
+                    mutation,
+                    to: &nextRecord,
+                    nowMs: nowMs,
+                    actionId: actionId,
+                    sourceId: sourceId,
+                    payloadObject: payloadObject
+                )
+            }
+        }
+
         if let timerMutations = action["timerMutations"] as? [[String: Any]] {
             for mutation in timerMutations {
                 applyTimerMutation(
@@ -203,7 +216,34 @@ enum TemplateRuntime {
     }
 
     static func resolveSvg(layoutObject: [String: Any], record: TemplateRuntimeRecord, nowMs: Int64) -> String {
-        resolveTemplateString(layoutObject["svg"] as? String ?? "", record: record, nowMs: nowMs)
+        resolveLayout(layoutObject: layoutObject, record: record, nowMs: nowMs)["svg"] as? String ?? ""
+    }
+
+    static func resolveLayout(layoutObject: [String: Any], record: TemplateRuntimeRecord, nowMs: Int64) -> [String: Any] {
+        let resolvedFrame = resolveLayoutFrame(layoutObject: layoutObject, record: record, nowMs: nowMs)
+        return [
+            "frameId": resolvedFrame.frameId as Any,
+            "svg": resolveTemplateString(resolvedFrame.svg, record: record, nowMs: nowMs),
+            "hotspots": resolvedFrame.hotspots as Any
+        ]
+    }
+
+    private static func resolveLayoutFrame(
+        layoutObject: [String: Any],
+        record: TemplateRuntimeRecord,
+        nowMs: Int64
+    ) -> (frameId: String?, svg: String, hotspots: Any?) {
+        let frames = layoutObject["frames"] as? [[String: Any]] ?? []
+        let requestedFrameId = resolveFrameId(layoutObject["frameIdPath"] as? String, record: record, nowMs: nowMs, dereferenceReferences: true)
+        let requestedFrame = frames.first(where: { ($0["id"] as? String) == requestedFrameId })
+        let defaultFrame = frames.first(where: { ($0["id"] as? String) == (layoutObject["defaultFrameId"] as? String) })
+        let selectedFrame = requestedFrame ?? defaultFrame ?? (layoutObject["svg"] == nil ? frames.first : nil)
+
+        return (
+            frameId: selectedFrame?["id"] as? String,
+            svg: selectedFrame?["svg"] as? String ?? layoutObject["svg"] as? String ?? "",
+            hotspots: selectedFrame?["hotspots"] ?? layoutObject["hotspots"]
+        )
     }
 
     static func createIdentifier(prefix: String) -> String {
@@ -218,12 +258,23 @@ enum TemplateRuntime {
         definition["actions"] as? [[String: Any]] ?? []
     }
 
+    private static func timerElapsedMs(_ timer: StoredTemplateTimerState, nowMs: Int64) -> Int64 {
+        let savedElapsedMs = max(Int64(0), timer.elapsedMs ?? 0)
+        if timer.status == "finished", timer.durationMs > 0 {
+            return timer.durationMs
+        }
+        if timer.status == "running", let startedAtMs = timer.startedAtMs {
+            return savedElapsedMs + max(Int64(0), nowMs - startedAtMs)
+        }
+        return savedElapsedMs
+    }
+
     private static func serializeTimerBinding(_ timer: StoredTemplateTimerState, nowMs: Int64) -> [String: Any] {
         let status = timerStatus(timer, nowMs: nowMs)
-        let startedAtMs = timer.startedAtMs
+        let startedAtMs = status == "running" ? timer.startedAtMs : nil
         let durationMs = timer.durationMs
-        let elapsedMs = startedAtMs.map { max(Int64(0), nowMs - $0) } ?? 0
-        let remainingMs = startedAtMs.map { max(Int64(0), ($0 + durationMs) - nowMs) } ?? 0
+        let elapsedMs = min(timerElapsedMs(timer, nowMs: nowMs), durationMs > 0 ? durationMs : Int64.max)
+        let remainingMs = durationMs > 0 ? max(Int64(0), durationMs - elapsedMs) : 0
         let progress = durationMs > 0 ? min(max(Double(elapsedMs) / Double(durationMs), 0), 1) : 0
         let totalSeconds = max(0, Int(ceil(Double(remainingMs) / 1000.0)))
         let minutes = totalSeconds / 60
@@ -239,8 +290,9 @@ enum TemplateRuntime {
             "progress": progress,
             "progressPct": Double(round(progress * 10_000) / 100),
             "isActive": status == "running",
+            "isPaused": status == "paused",
             "remainingText": String(format: "%d:%02d", minutes, seconds),
-            "endsAtMs": startedAtMs.map { $0 + durationMs } as Any
+            "endsAtMs": startedAtMs.map { $0 + max(Int64(0), durationMs - (timer.elapsedMs ?? 0)) } as Any
         ]
     }
 
@@ -248,6 +300,7 @@ enum TemplateRuntime {
         [
             "id": timer.id,
             "startedAt": timer.startedAtMs as Any,
+            "elapsedMs": timer.elapsedMs as Any,
             "durationMs": timer.durationMs,
             "status": timer.status,
             "updatedAt": timer.updatedAtMs
@@ -264,16 +317,23 @@ enum TemplateRuntime {
 
             let previous = record.timers[timerId]
             let durationMs = resolveDuration(definition, record: record, nowMs: nowMs) ?? previous?.durationMs ?? 0
-            let startedAtMs = previous?.startedAtMs ?? resolveStartAt(definition, record: record, nowMs: nowMs)
+            let hasStartAtPath = !((definition["startAtPath"] as? String) ?? "").isEmpty
+            let shouldResolveStartAt = previous == nil || (previous?.startedAtMs == nil && hasStartAtPath)
+            let startedAtMs = previous?.startedAtMs ?? (shouldResolveStartAt ? resolveStartAt(definition, record: record, nowMs: nowMs) : nil)
 
             var timer = StoredTemplateTimerState(
                 id: timerId,
                 startedAtMs: startedAtMs,
                 durationMs: durationMs,
                 status: previous?.status ?? (startedAtMs == nil ? "idle" : "running"),
-                updatedAtMs: nowMs
+                updatedAtMs: nowMs,
+                elapsedMs: previous?.elapsedMs ?? 0
             )
             timer.status = timerStatus(timer, nowMs: nowMs)
+            if timer.status == "finished" {
+                timer.startedAtMs = nil
+                timer.elapsedMs = timer.durationMs
+            }
             nextTimers[timerId] = timer
         }
 
@@ -421,6 +481,166 @@ enum TemplateRuntime {
         return NSNull()
     }
 
+    private static func frameIdsForMutation(_ mutation: [String: Any], record: TemplateRuntimeRecord) -> [String] {
+        if let frameIds = mutation["frameIds"] as? [String], !frameIds.isEmpty {
+            return frameIds
+        }
+
+        guard let surface = mutation["surface"] as? String,
+              let layouts = record.definition["layouts"] as? [String: Any],
+              let layout = layouts[surface] as? [String: Any],
+              let frames = layout["frames"] as? [[String: Any]]
+        else {
+            return []
+        }
+
+        return frames.compactMap { $0["id"] as? String }
+    }
+
+    private static func resolveFrameId(
+        _ template: String?,
+        record: TemplateRuntimeRecord,
+        nowMs: Int64,
+        actionId: String? = nil,
+        sourceId: String? = nil,
+        payloadObject: [String: Any]? = nil,
+        dereferenceReferences: Bool = false
+    ) -> String? {
+        guard let template, !template.isEmpty else {
+            return nil
+        }
+
+        if let exact = exactTokenValue(
+            template,
+            record: record,
+            nowMs: nowMs,
+            actionId: actionId,
+            sourceId: sourceId,
+            payloadObject: payloadObject
+        ) {
+            return stringifyValue(exact)
+        }
+
+        let resolved = resolveTemplateString(
+            template,
+            record: record,
+            nowMs: nowMs,
+            actionId: actionId,
+            sourceId: sourceId,
+            payloadObject: payloadObject
+        )
+        if dereferenceReferences,
+           let referenced = resolveReference(
+            resolved,
+            record: record,
+            nowMs: nowMs,
+            actionId: actionId,
+            sourceId: sourceId,
+            payloadObject: payloadObject
+           ) {
+            return stringifyValue(referenced)
+        }
+        return resolved.isEmpty ? nil : resolved
+    }
+
+    private static func normalizeFrameMutationId(_ frameId: String?, frameIds: [String]) -> String? {
+        guard let frameId, !frameId.isEmpty else {
+            return nil
+        }
+        return frameIds.isEmpty || frameIds.contains(frameId) ? frameId : nil
+    }
+
+    private static func applyFrameMutation(
+        _ mutation: [String: Any],
+        to record: inout TemplateRuntimeRecord,
+        nowMs: Int64,
+        actionId: String,
+        sourceId: String?,
+        payloadObject: [String: Any]?
+    ) {
+        guard let op = mutation["op"] as? String, let rawPath = mutation["path"] as? String else {
+            return
+        }
+
+        let resolvedPath = normalizeStatePath(
+            resolveTemplateString(
+                rawPath,
+                record: record,
+                nowMs: nowMs,
+                actionId: actionId,
+                sourceId: sourceId,
+                payloadObject: payloadObject
+            )
+        )
+        guard !resolvedPath.isEmpty else {
+            return
+        }
+
+        let frameIds = frameIdsForMutation(mutation, record: record)
+        let currentValue = stringifyValue(getValue(at: resolvedPath, in: record.state))
+        let currentIndex = frameIds.firstIndex(of: currentValue)
+        let wraps = (mutation["wrap"] as? Bool) ?? true
+        var nextFrameId: String?
+
+        switch op {
+        case "set":
+            nextFrameId = resolveFrameId(
+                mutation["frameId"] as? String,
+                record: record,
+                nowMs: nowMs,
+                actionId: actionId,
+                sourceId: sourceId,
+                payloadObject: payloadObject
+            )
+        case "toggle":
+            let alternateFrameId = resolveFrameId(
+                mutation["frameId"] as? String,
+                record: record,
+                nowMs: nowMs,
+                actionId: actionId,
+                sourceId: sourceId,
+                payloadObject: payloadObject
+            )
+            if frameIds.count >= 2 {
+                nextFrameId = currentValue == frameIds[0] ? frameIds[1] : frameIds[0]
+            } else if let alternateFrameId {
+                nextFrameId = currentValue == alternateFrameId ? frameIds.first : alternateFrameId
+            }
+        case "next":
+            guard !frameIds.isEmpty else { break }
+            let nextIndex = currentIndex.map { $0 + 1 } ?? 0
+            nextFrameId = frameIds.indices.contains(nextIndex) ? frameIds[nextIndex] : (wraps ? frameIds[0] : currentValue)
+        case "previous":
+            guard !frameIds.isEmpty else { break }
+            let nextIndex = currentIndex.map { $0 - 1 } ?? frameIds.count - 1
+            nextFrameId = frameIds.indices.contains(nextIndex) ? frameIds[nextIndex] : (wraps ? frameIds[frameIds.count - 1] : currentValue)
+        default:
+            break
+        }
+
+        nextFrameId = normalizeFrameMutationId(nextFrameId, frameIds: frameIds)
+        if let nextFrameId, !nextFrameId.isEmpty {
+            setValue(nextFrameId, at: resolvedPath, in: &record.state)
+        }
+    }
+
+    private static func pauseTimer(_ timer: inout StoredTemplateTimerState, nowMs: Int64) {
+        timer.elapsedMs = min(timer.durationMs, timerElapsedMs(timer, nowMs: nowMs))
+        timer.startedAtMs = nil
+        timer.status = timerStatus(timer, nowMs: nowMs)
+    }
+
+    private static func resumeTimer(_ timer: inout StoredTemplateTimerState, nowMs: Int64) {
+        if timer.status == "stopped" {
+            return
+        }
+        if timer.status != "paused" {
+            timer.elapsedMs = 0
+        }
+        timer.startedAtMs = nowMs
+        timer.status = timer.durationMs > 0 ? "running" : "idle"
+    }
+
     private static func applyTimerMutation(
         _ mutation: [String: Any],
         to record: inout TemplateRuntimeRecord,
@@ -438,7 +658,8 @@ enum TemplateRuntime {
             startedAtMs: nil,
             durationMs: 0,
             status: "idle",
-            updatedAtMs: nowMs
+            updatedAtMs: nowMs,
+            elapsedMs: 0
         )
 
         if let durationMs = coerceInt64(mutation["durationMs"]) {
@@ -469,11 +690,27 @@ enum TemplateRuntime {
 
         switch op {
         case "start", "restart":
+            timer.elapsedMs = 0
             timer.startedAtMs = nowMs
             timer.status = timer.durationMs > 0 ? "running" : "idle"
+        case "pause":
+            pauseTimer(&timer, nowMs: nowMs)
+        case "resume":
+            resumeTimer(&timer, nowMs: nowMs)
+        case "toggle":
+            if timerStatus(timer, nowMs: nowMs) == "running" {
+                pauseTimer(&timer, nowMs: nowMs)
+            } else {
+                resumeTimer(&timer, nowMs: nowMs)
+            }
         case "stop":
+            timer.elapsedMs = 0
             timer.startedAtMs = nil
             timer.status = "stopped"
+        case "reset":
+            timer.elapsedMs = 0
+            timer.startedAtMs = nil
+            timer.status = "idle"
         case "setDuration":
             break
         default:
@@ -482,6 +719,10 @@ enum TemplateRuntime {
 
         timer.updatedAtMs = nowMs
         timer.status = timerStatus(timer, nowMs: nowMs)
+        if timer.status == "finished" {
+            timer.elapsedMs = timer.durationMs
+            timer.startedAtMs = nil
+        }
         record.timers[timerId] = timer
     }
 
@@ -493,10 +734,21 @@ enum TemplateRuntime {
         if timer.status == "stopped" {
             return "stopped"
         }
-        guard let startedAtMs = timer.startedAtMs, timer.durationMs > 0 else {
+
+        let elapsedMs = timerElapsedMs(timer, nowMs: nowMs)
+        if timer.durationMs <= 0 {
             return "idle"
         }
-        return startedAtMs + timer.durationMs <= nowMs ? "finished" : "running"
+        if elapsedMs >= timer.durationMs {
+            return "finished"
+        }
+        if timer.status == "paused" {
+            return "paused"
+        }
+        if timer.startedAtMs != nil {
+            return "running"
+        }
+        return elapsedMs > 0 ? "paused" : "idle"
     }
 
     private static func buildScope(
@@ -812,4 +1064,4 @@ enum TemplateRuntime {
         }
     }
 }
-// swiftlint:enable type_body_length force_try function_parameter_count identifier_name
+// swiftlint:enable type_body_length force_try function_parameter_count identifier_name file_length

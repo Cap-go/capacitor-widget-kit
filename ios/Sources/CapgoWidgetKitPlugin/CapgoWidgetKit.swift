@@ -108,6 +108,108 @@ public final class CapgoWidgetKit {
         try TemplateLiveActivityManager.shared.acknowledgeEvents(activityId: activityId, eventIds: eventIds)
     }
 
+    public func startWidgetSession(
+        widgetId: String?,
+        kind: String?,
+        stateObject: [String: Any]?,
+        metadataObject: [String: Any]?
+    ) throws -> [String: Any] {
+        let session = try CapgoNativeWidgetBridge().startSession(
+            widgetId: widgetId,
+            kind: kind,
+            stateObject: stateObject ?? [:],
+            metadataObject: metadataObject
+        )
+        return ["session": try CapgoNativeWidgetBridge.serializeSession(session)]
+    }
+
+    public func updateWidgetSession(
+        widgetId: String,
+        stateObject: [String: Any]?,
+        metadataObject: [String: Any]?,
+        merge: Bool
+    ) throws -> [String: Any] {
+        let session = try CapgoNativeWidgetBridge().updateSession(
+            widgetId: widgetId,
+            stateObject: stateObject,
+            metadataObject: metadataObject,
+            merge: merge
+        )
+        guard let session else {
+            return ["session": NSNull()]
+        }
+        return ["session": try CapgoNativeWidgetBridge.serializeSession(session)]
+    }
+
+    public func stopWidgetSession(widgetId: String, stateObject: [String: Any]?) throws {
+        try CapgoNativeWidgetBridge().stopSession(widgetId: widgetId, stateObject: stateObject)
+    }
+
+    public func getWidgetSession(widgetId: String) throws -> [String: Any] {
+        let session = try CapgoNativeWidgetBridge().loadSession(widgetId: widgetId)
+        guard let session else {
+            return ["session": NSNull()]
+        }
+        return ["session": try CapgoNativeWidgetBridge.serializeSession(session)]
+    }
+
+    public func listWidgetSessions() throws -> [String: Any] {
+        let sessions = try CapgoNativeWidgetBridge().listSessions().map(CapgoNativeWidgetBridge.serializeSession)
+        return ["sessions": sessions]
+    }
+
+    public func sendWidgetMessage(
+        widgetId: String,
+        direction: String?,
+        name: String,
+        payloadObject: [String: Any]?,
+        expectsResponse: Bool
+    ) throws -> [String: Any] {
+        let message = try CapgoNativeWidgetBridge().sendMessage(
+            widgetId: widgetId,
+            name: name,
+            direction: CapgoWidgetMessageDirection(rawValue: direction ?? "") ?? .appToWidget,
+            payloadObject: payloadObject,
+            expectsResponse: expectsResponse
+        )
+        return ["message": try CapgoNativeWidgetBridge.serializeMessage(message)]
+    }
+
+    public func listWidgetMessages(
+        widgetId: String?,
+        direction: String?,
+        unacknowledgedOnly: Bool,
+        pendingOnly: Bool
+    ) throws -> [String: Any] {
+        let messages = try CapgoNativeWidgetBridge().listMessages(
+            widgetId: widgetId,
+            direction: direction.flatMap(CapgoWidgetMessageDirection.init(rawValue:)),
+            unacknowledgedOnly: unacknowledgedOnly,
+            pendingOnly: pendingOnly
+        ).map(CapgoNativeWidgetBridge.serializeMessage)
+        return ["messages": messages]
+    }
+
+    public func acknowledgeWidgetMessages(messageIds: [String]?, widgetId: String?, direction: String?) throws {
+        try CapgoNativeWidgetBridge().acknowledgeMessages(
+            messageIds: messageIds,
+            widgetId: widgetId,
+            direction: direction.flatMap(CapgoWidgetMessageDirection.init(rawValue:))
+        )
+    }
+
+    public func completeWidgetMessage(messageId: String, responseObject: [String: Any]?, error: String?) throws -> [String: Any] {
+        let message = try CapgoNativeWidgetBridge().completeMessage(
+            messageId: messageId,
+            responseObject: responseObject,
+            error: error
+        )
+        guard let message else {
+            return ["message": NSNull()]
+        }
+        return ["message": try CapgoNativeWidgetBridge.serializeMessage(message)]
+    }
+
     public func getPluginVersion() -> [String: Any] {
         [
             "version": Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "ios"

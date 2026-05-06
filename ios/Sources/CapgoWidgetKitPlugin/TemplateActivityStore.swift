@@ -3,13 +3,22 @@ import Foundation
 public struct StoredTemplateTimerState: Codable, Hashable, Sendable {
     public var id: String
     public var startedAtMs: Int64?
+    public var elapsedMs: Int64?
     public var durationMs: Int64
     public var status: String
     public var updatedAtMs: Int64
 
-    public init(id: String, startedAtMs: Int64?, durationMs: Int64, status: String, updatedAtMs: Int64) {
+    public init(
+        id: String,
+        startedAtMs: Int64?,
+        durationMs: Int64,
+        status: String,
+        updatedAtMs: Int64,
+        elapsedMs: Int64? = nil
+    ) {
         self.id = id
         self.startedAtMs = startedAtMs
+        self.elapsedMs = elapsedMs
         self.durationMs = durationMs
         self.status = status
         self.updatedAtMs = updatedAtMs

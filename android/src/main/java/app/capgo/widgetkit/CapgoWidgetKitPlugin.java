@@ -181,6 +181,173 @@ public class CapgoWidgetKitPlugin extends Plugin {
     }
 
     @PluginMethod
+    public void startWidgetSession(final PluginCall call) {
+        try {
+            final JSONObject session = implementation.startWidgetSession(
+                call.getString("widgetId"),
+                call.getString("kind"),
+                call.getObject("state"),
+                call.getObject("metadata")
+            );
+            final JSObject result = new JSObject();
+            result.put("session", toJsObject(session));
+            call.resolve(result);
+        } catch (JSONException exception) {
+            call.reject(exception.getMessage(), exception);
+        }
+    }
+
+    @PluginMethod
+    public void updateWidgetSession(final PluginCall call) {
+        final String widgetId = call.getString("widgetId");
+        if (widgetId == null) {
+            call.reject("The `widgetId` is required.");
+            return;
+        }
+
+        try {
+            final JSONObject session = implementation.updateWidgetSession(
+                widgetId,
+                call.getObject("state"),
+                call.getObject("metadata"),
+                call.getBoolean("merge", false)
+            );
+            final JSObject result = new JSObject();
+            result.put("session", session == null ? JSObject.NULL : toJsObject(session));
+            call.resolve(result);
+        } catch (JSONException exception) {
+            call.reject(exception.getMessage(), exception);
+        }
+    }
+
+    @PluginMethod
+    public void stopWidgetSession(final PluginCall call) {
+        final String widgetId = call.getString("widgetId");
+        if (widgetId == null) {
+            call.reject("The `widgetId` is required.");
+            return;
+        }
+
+        try {
+            implementation.stopWidgetSession(widgetId, call.getObject("state"));
+            call.resolve();
+        } catch (JSONException exception) {
+            call.reject(exception.getMessage(), exception);
+        }
+    }
+
+    @PluginMethod
+    public void getWidgetSession(final PluginCall call) {
+        final String widgetId = call.getString("widgetId");
+        if (widgetId == null) {
+            call.reject("The `widgetId` is required.");
+            return;
+        }
+
+        try {
+            final JSONObject session = implementation.getWidgetSession(widgetId);
+            final JSObject result = new JSObject();
+            result.put("session", session == null ? JSObject.NULL : toJsObject(session));
+            call.resolve(result);
+        } catch (JSONException exception) {
+            call.reject(exception.getMessage(), exception);
+        }
+    }
+
+    @PluginMethod
+    public void listWidgetSessions(final PluginCall call) {
+        try {
+            final JSObject result = new JSObject();
+            result.put("sessions", toJsArray(implementation.listWidgetSessions()));
+            call.resolve(result);
+        } catch (JSONException exception) {
+            call.reject(exception.getMessage(), exception);
+        }
+    }
+
+    @PluginMethod
+    public void sendWidgetMessage(final PluginCall call) {
+        final String widgetId = call.getString("widgetId");
+        final String name = call.getString("name");
+        if (widgetId == null) {
+            call.reject("The `widgetId` is required.");
+            return;
+        }
+        if (name == null) {
+            call.reject("The `name` is required.");
+            return;
+        }
+
+        try {
+            final JSONObject message = implementation.sendWidgetMessage(
+                widgetId,
+                call.getString("direction"),
+                name,
+                call.getObject("payload"),
+                call.getBoolean("expectsResponse", false)
+            );
+            final JSObject result = new JSObject();
+            result.put("message", toJsObject(message));
+            call.resolve(result);
+        } catch (JSONException exception) {
+            call.reject(exception.getMessage(), exception);
+        }
+    }
+
+    @PluginMethod
+    public void listWidgetMessages(final PluginCall call) {
+        try {
+            final JSObject result = new JSObject();
+            result.put(
+                "messages",
+                toJsArray(
+                    implementation.listWidgetMessages(
+                        call.getString("widgetId"),
+                        call.getString("direction"),
+                        call.getBoolean("unacknowledgedOnly", false),
+                        call.getBoolean("pendingOnly", false)
+                    )
+                )
+            );
+            call.resolve(result);
+        } catch (JSONException exception) {
+            call.reject(exception.getMessage(), exception);
+        }
+    }
+
+    @PluginMethod
+    public void acknowledgeWidgetMessages(final PluginCall call) {
+        try {
+            implementation.acknowledgeWidgetMessages(
+                toJsonArray(call.getArray("messageIds")),
+                call.getString("widgetId"),
+                call.getString("direction")
+            );
+            call.resolve();
+        } catch (JSONException exception) {
+            call.reject(exception.getMessage(), exception);
+        }
+    }
+
+    @PluginMethod
+    public void completeWidgetMessage(final PluginCall call) {
+        final String messageId = call.getString("messageId");
+        if (messageId == null) {
+            call.reject("The `messageId` is required.");
+            return;
+        }
+
+        try {
+            final JSONObject message = implementation.completeWidgetMessage(messageId, call.getObject("response"), call.getString("error"));
+            final JSObject result = new JSObject();
+            result.put("message", message == null ? JSObject.NULL : toJsObject(message));
+            call.resolve(result);
+        } catch (JSONException exception) {
+            call.reject(exception.getMessage(), exception);
+        }
+    }
+
+    @PluginMethod
     public void getPluginVersion(final PluginCall call) {
         try {
             call.resolve(toJsObject(implementation.getPluginVersion()));

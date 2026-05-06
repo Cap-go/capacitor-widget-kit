@@ -231,16 +231,32 @@ final class TemplateJsonUtils {
             .put("template", template);
     }
 
-    static JSONObject buildTimerBinding(final JSONObject timer, final long nowMs) throws JSONException {
+    static long timerElapsedMs(final JSONObject timer, final long nowMs) {
+        final Long savedElapsedMs = coerceLong(timer.opt("elapsedMs"));
+        final long elapsedMs = Math.max(0L, savedElapsedMs != null ? savedElapsedMs : 0L);
+        final Long durationMs = coerceLong(timer.opt("durationMs"));
+        if ("finished".equals(timer.optString("status")) && durationMs != null && durationMs > 0L) {
+            return durationMs;
+        }
+
         final Long startedAt = coerceLong(timer.opt("startedAt"));
+        if ("running".equals(timer.optString("status")) && startedAt != null) {
+            return elapsedMs + Math.max(0L, nowMs - startedAt);
+        }
+        return elapsedMs;
+    }
+
+    static JSONObject buildTimerBinding(final JSONObject timer, final long nowMs) throws JSONException {
         final long durationMs = coerceLong(timer.opt("durationMs")) != null ? coerceLong(timer.opt("durationMs")) : 0L;
         final String status = timerStatus(timer, nowMs);
-        final long elapsedMs = startedAt == null ? 0L : Math.max(0L, nowMs - startedAt);
-        final long remainingMs = startedAt == null ? 0L : Math.max(0L, startedAt + durationMs - nowMs);
+        final Long startedAt = "running".equals(status) ? coerceLong(timer.opt("startedAt")) : null;
+        final long elapsedMs = Math.min(timerElapsedMs(timer, nowMs), durationMs > 0L ? durationMs : Long.MAX_VALUE);
+        final long remainingMs = durationMs > 0 ? Math.max(0L, durationMs - elapsedMs) : 0L;
         final double progress = durationMs > 0 ? Math.min(Math.max((double) elapsedMs / (double) durationMs, 0D), 1D) : 0D;
         final int totalSeconds = Math.max(0, (int) Math.ceil((double) remainingMs / 1000D));
         final int minutes = totalSeconds / 60;
         final int seconds = totalSeconds % 60;
+        final Long savedElapsedMs = coerceLong(timer.opt("elapsedMs"));
 
         return new JSONObject()
             .put("id", timer.optString("id"))
@@ -252,8 +268,12 @@ final class TemplateJsonUtils {
             .put("progress", progress)
             .put("progressPct", Math.round(progress * 10_000D) / 100D)
             .put("isActive", "running".equals(status))
+            .put("isPaused", "paused".equals(status))
             .put("remainingText", String.format(Locale.US, "%d:%02d", minutes, seconds))
-            .put("endsAtMs", startedAt == null ? JSONObject.NULL : startedAt + durationMs);
+            .put(
+                "endsAtMs",
+                startedAt == null ? JSONObject.NULL : startedAt + Math.max(0L, durationMs - (savedElapsedMs != null ? savedElapsedMs : 0L))
+            );
     }
 
     static JSONObject buildRuntimeScope(final JSONObject record, final long nowMs, final JSONObject actionScope) throws JSONException {
@@ -300,14 +320,22 @@ final class TemplateJsonUtils {
             return "stopped";
         }
 
-        final Long startedAt = coerceLong(timer.opt("startedAt"));
+        final long elapsedMs = timerElapsedMs(timer, nowMs);
         final long durationMs = coerceLong(timer.opt("durationMs")) != null ? coerceLong(timer.opt("durationMs")) : 0L;
 
-        if (startedAt == null || durationMs <= 0) {
+        if (durationMs <= 0) {
             return "idle";
         }
-
-        return startedAt + durationMs <= nowMs ? "finished" : "running";
+        if (elapsedMs >= durationMs) {
+            return "finished";
+        }
+        if ("paused".equals(currentStatus)) {
+            return "paused";
+        }
+        if (coerceLong(timer.opt("startedAt")) != null) {
+            return "running";
+        }
+        return elapsedMs > 0L ? "paused" : "idle";
     }
 
     private static Object ensureContainer(final Object parent, final String segment, final String nextSegment) throws JSONException {

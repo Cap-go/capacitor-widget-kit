@@ -15,6 +15,15 @@ public class CapgoWidgetKitPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "listTemplateActivities", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "listTemplateEvents", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "acknowledgeTemplateEvents", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "startWidgetSession", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "updateWidgetSession", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "stopWidgetSession", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "getWidgetSession", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "listWidgetSessions", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "sendWidgetMessage", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "listWidgetMessages", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "acknowledgeWidgetMessages", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "completeWidgetMessage", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "getPluginVersion", returnType: CAPPluginReturnPromise)
     ]
 
@@ -159,6 +168,149 @@ public class CapgoWidgetKitPlugin: CAPPlugin, CAPBridgedPlugin {
                 eventIds: eventIds
             )
             call.resolve()
+        } catch {
+            call.reject(error.localizedDescription)
+        }
+    }
+
+    @objc func startWidgetSession(_ call: CAPPluginCall) {
+        do {
+            call.resolve(
+                try implementation.startWidgetSession(
+                    widgetId: call.getString("widgetId"),
+                    kind: call.getString("kind"),
+                    stateObject: call.getObject("state"),
+                    metadataObject: call.getObject("metadata")
+                )
+            )
+        } catch {
+            call.reject(error.localizedDescription)
+        }
+    }
+
+    @objc func updateWidgetSession(_ call: CAPPluginCall) {
+        guard let widgetId = call.getString("widgetId") else {
+            call.reject("The `widgetId` is required.")
+            return
+        }
+
+        do {
+            call.resolve(
+                try implementation.updateWidgetSession(
+                    widgetId: widgetId,
+                    stateObject: call.getObject("state"),
+                    metadataObject: call.getObject("metadata"),
+                    merge: call.getBool("merge") ?? false
+                )
+            )
+        } catch {
+            call.reject(error.localizedDescription)
+        }
+    }
+
+    @objc func stopWidgetSession(_ call: CAPPluginCall) {
+        guard let widgetId = call.getString("widgetId") else {
+            call.reject("The `widgetId` is required.")
+            return
+        }
+
+        do {
+            try implementation.stopWidgetSession(widgetId: widgetId, stateObject: call.getObject("state"))
+            call.resolve()
+        } catch {
+            call.reject(error.localizedDescription)
+        }
+    }
+
+    @objc func getWidgetSession(_ call: CAPPluginCall) {
+        guard let widgetId = call.getString("widgetId") else {
+            call.reject("The `widgetId` is required.")
+            return
+        }
+
+        do {
+            call.resolve(try implementation.getWidgetSession(widgetId: widgetId))
+        } catch {
+            call.reject(error.localizedDescription)
+        }
+    }
+
+    @objc func listWidgetSessions(_ call: CAPPluginCall) {
+        do {
+            call.resolve(try implementation.listWidgetSessions())
+        } catch {
+            call.reject(error.localizedDescription)
+        }
+    }
+
+    @objc func sendWidgetMessage(_ call: CAPPluginCall) {
+        guard let widgetId = call.getString("widgetId") else {
+            call.reject("The `widgetId` is required.")
+            return
+        }
+
+        guard let name = call.getString("name") else {
+            call.reject("The `name` is required.")
+            return
+        }
+
+        do {
+            call.resolve(
+                try implementation.sendWidgetMessage(
+                    widgetId: widgetId,
+                    direction: call.getString("direction"),
+                    name: name,
+                    payloadObject: call.getObject("payload"),
+                    expectsResponse: call.getBool("expectsResponse") ?? false
+                )
+            )
+        } catch {
+            call.reject(error.localizedDescription)
+        }
+    }
+
+    @objc func listWidgetMessages(_ call: CAPPluginCall) {
+        do {
+            call.resolve(
+                try implementation.listWidgetMessages(
+                    widgetId: call.getString("widgetId"),
+                    direction: call.getString("direction"),
+                    unacknowledgedOnly: call.getBool("unacknowledgedOnly") ?? false,
+                    pendingOnly: call.getBool("pendingOnly") ?? false
+                )
+            )
+        } catch {
+            call.reject(error.localizedDescription)
+        }
+    }
+
+    @objc func acknowledgeWidgetMessages(_ call: CAPPluginCall) {
+        do {
+            try implementation.acknowledgeWidgetMessages(
+                messageIds: call.getArray("messageIds", String.self),
+                widgetId: call.getString("widgetId"),
+                direction: call.getString("direction")
+            )
+            call.resolve()
+        } catch {
+            call.reject(error.localizedDescription)
+        }
+    }
+
+    @objc func completeWidgetMessage(_ call: CAPPluginCall) {
+        guard let messageId = call.getString("messageId") else {
+            call.reject("The `messageId` is required.")
+            return
+        }
+
+        do {
+            call.resolve(
+                try implementation.completeWidgetMessage(
+                    messageId: messageId,
+                    responseObject: call.getObject("response"),
+                    error: call.getString("error")
+                )
+            )
         } catch {
             call.reject(error.localizedDescription)
         }

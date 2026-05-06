@@ -52,6 +52,7 @@ public struct CapgoResolvedTemplateLayout: Hashable, Sendable {
     public let activityId: String
     public let templateId: String
     public let surface: CapgoTemplateSurface
+    public let frameId: String?
     public let svg: String
     public let width: Double
     public let height: Double
@@ -65,6 +66,7 @@ public struct CapgoResolvedTemplateLayout: Hashable, Sendable {
         activityId: String,
         templateId: String,
         surface: CapgoTemplateSurface,
+        frameId: String?,
         svg: String,
         width: Double,
         height: Double,
@@ -77,6 +79,7 @@ public struct CapgoResolvedTemplateLayout: Hashable, Sendable {
         self.activityId = activityId
         self.templateId = templateId
         self.surface = surface
+        self.frameId = frameId
         self.svg = svg
         self.width = width
         self.height = height
@@ -118,18 +121,21 @@ public final class CapgoTemplateWidgetBridge {
             return nil
         }
 
+        let resolvedLayout = TemplateRuntime.resolveLayout(
+            layoutObject: layoutObject,
+            record: record,
+            nowMs: Int64(now.timeIntervalSince1970 * 1000)
+        )
+
         return CapgoResolvedTemplateLayout(
             activityId: record.activityId,
             templateId: record.templateId,
             surface: surface,
-            svg: TemplateRuntime.resolveSvg(
-                layoutObject: layoutObject,
-                record: record,
-                nowMs: Int64(now.timeIntervalSince1970 * 1000)
-            ),
+            frameId: resolvedLayout["frameId"] as? String,
+            svg: resolvedLayout["svg"] as? String ?? "",
             width: coerceDouble(layoutObject["width"]) ?? 1,
             height: coerceDouble(layoutObject["height"]) ?? 1,
-            hotspots: parseHotspots(layoutObject["hotspots"]),
+            hotspots: parseHotspots(resolvedLayout["hotspots"]),
             openUrl: record.openUrl,
             status: record.status,
             revision: record.revision,

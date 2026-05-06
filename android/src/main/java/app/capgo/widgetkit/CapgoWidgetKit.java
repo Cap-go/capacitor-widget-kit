@@ -12,10 +12,12 @@ public class CapgoWidgetKit {
 
     private final Context context;
     private final TemplateActivityStore store;
+    private final CapgoNativeWidgetBridge nativeWidgetBridge;
 
     public CapgoWidgetKit(final Context context) {
         this.context = context.getApplicationContext();
         this.store = new TemplateActivityStore(this.context);
+        this.nativeWidgetBridge = new CapgoNativeWidgetBridge(this.context);
     }
 
     public JSONObject areActivitiesSupported() throws JSONException {
@@ -124,6 +126,65 @@ public class CapgoWidgetKit {
         notifyStoreChanged(activityId);
     }
 
+    public JSONObject startWidgetSession(final String widgetId, final String kind, final JSONObject state, final JSONObject metadata)
+        throws JSONException {
+        final JSONObject session = nativeWidgetBridge.startSession(widgetId, kind, state, metadata);
+        notifyWidgetBridgeChanged(session.optString("widgetId"), null);
+        return session;
+    }
+
+    public JSONObject updateWidgetSession(final String widgetId, final JSONObject state, final JSONObject metadata, final boolean merge)
+        throws JSONException {
+        final JSONObject session = nativeWidgetBridge.updateSession(widgetId, state, metadata, merge);
+        notifyWidgetBridgeChanged(widgetId, null);
+        return session;
+    }
+
+    public void stopWidgetSession(final String widgetId, final JSONObject state) throws JSONException {
+        nativeWidgetBridge.stopSession(widgetId, state);
+        notifyWidgetBridgeChanged(widgetId, null);
+    }
+
+    public JSONObject getWidgetSession(final String widgetId) throws JSONException {
+        return nativeWidgetBridge.loadSession(widgetId);
+    }
+
+    public JSONArray listWidgetSessions() throws JSONException {
+        return nativeWidgetBridge.listSessions();
+    }
+
+    public JSONObject sendWidgetMessage(
+        final String widgetId,
+        final String direction,
+        final String name,
+        final JSONObject payload,
+        final boolean expectsResponse
+    ) throws JSONException {
+        final JSONObject message = nativeWidgetBridge.sendMessage(widgetId, direction, name, payload, expectsResponse);
+        notifyWidgetBridgeChanged(widgetId, message.optString("messageId"));
+        return message;
+    }
+
+    public JSONArray listWidgetMessages(
+        final String widgetId,
+        final String direction,
+        final boolean unacknowledgedOnly,
+        final boolean pendingOnly
+    ) throws JSONException {
+        return nativeWidgetBridge.listMessages(widgetId, direction, unacknowledgedOnly, pendingOnly);
+    }
+
+    public void acknowledgeWidgetMessages(final JSONArray messageIds, final String widgetId, final String direction) throws JSONException {
+        nativeWidgetBridge.acknowledgeMessages(messageIds, widgetId, direction);
+        notifyWidgetBridgeChanged(widgetId, null);
+    }
+
+    public JSONObject completeWidgetMessage(final String messageId, final JSONObject response, final String error) throws JSONException {
+        final JSONObject message = nativeWidgetBridge.completeMessage(messageId, response, error);
+        notifyWidgetBridgeChanged(message == null ? null : message.optString("widgetId"), messageId);
+        return message;
+    }
+
     public JSONObject getPluginVersion() throws JSONException {
         String versionName = "android";
         try {
@@ -141,6 +202,17 @@ public class CapgoWidgetKit {
         final Intent intent = new Intent(CapgoWidgetKitConstants.ACTION_TEMPLATE_STORE_CHANGED)
             .setPackage(context.getPackageName())
             .putExtra(CapgoWidgetKitConstants.EXTRA_ACTIVITY_ID, activityId);
+        context.sendBroadcast(intent);
+    }
+
+    private void notifyWidgetBridgeChanged(final String widgetId, final String messageId) {
+        final Intent intent = new Intent(CapgoWidgetKitConstants.ACTION_NATIVE_WIDGET_BRIDGE_CHANGED).setPackage(context.getPackageName());
+        if (widgetId != null) {
+            intent.putExtra(CapgoWidgetKitConstants.EXTRA_WIDGET_ID, widgetId);
+        }
+        if (messageId != null) {
+            intent.putExtra(CapgoWidgetKitConstants.EXTRA_MESSAGE_ID, messageId);
+        }
         context.sendBroadcast(intent);
     }
 }

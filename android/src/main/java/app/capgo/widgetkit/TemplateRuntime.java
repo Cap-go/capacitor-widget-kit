@@ -106,6 +106,16 @@ final class TemplateRuntime {
             }
         }
 
+        final JSONArray frameMutations = action.optJSONArray("frameMutations");
+        if (frameMutations != null) {
+            for (int index = 0; index < frameMutations.length(); index += 1) {
+                final JSONObject mutation = frameMutations.optJSONObject(index);
+                if (mutation != null) {
+                    applyFrameMutation(nextActivity, mutation, nowMs, actionScope);
+                }
+            }
+        }
+
         final JSONArray timerMutations = action.optJSONArray("timerMutations");
         if (timerMutations != null) {
             for (int index = 0; index < timerMutations.length(); index += 1) {
@@ -162,11 +172,14 @@ final class TemplateRuntime {
             return null;
         }
 
+        final JSONObject resolvedLayout = resolveLayoutFrame(layout, record, nowMs);
+
         return new JSONObject()
             .put("surface", surface)
             .put("activityId", record.optString("activityId"))
             .put("templateId", record.getJSONObject("definition").optString("id"))
-            .put("svg", TemplateJsonUtils.resolveTemplateString(layout.optString("svg", ""), record, nowMs, null))
+            .put("frameId", resolvedLayout.has("frameId") ? resolvedLayout.opt("frameId") : JSONObject.NULL)
+            .put("svg", TemplateJsonUtils.resolveTemplateString(resolvedLayout.optString("svg", ""), record, nowMs, null))
             .put(
                 "width",
                 TemplateJsonUtils.coerceDouble(layout.opt("width")) != null ? TemplateJsonUtils.coerceDouble(layout.opt("width")) : 1D
@@ -177,12 +190,51 @@ final class TemplateRuntime {
             )
             .put(
                 "hotspots",
-                TemplateJsonUtils.deepCopyValue(layout.optJSONArray("hotspots") != null ? layout.optJSONArray("hotspots") : new JSONArray())
+                TemplateJsonUtils.deepCopyValue(
+                    resolvedLayout.optJSONArray("hotspots") != null ? resolvedLayout.optJSONArray("hotspots") : new JSONArray()
+                )
             )
             .put("openUrl", record.has("openUrl") ? record.opt("openUrl") : JSONObject.NULL)
             .put("status", record.optString("status"))
             .put("revision", record.optInt("revision"))
             .put("updatedAt", record.optLong("updatedAt"));
+    }
+
+    private static JSONObject resolveLayoutFrame(final JSONObject layout, final JSONObject record, final long nowMs) throws JSONException {
+        final JSONArray frames = TemplateJsonUtils.arrayOrEmpty(layout, "frames");
+        final String requestedFrameId = resolveFrameId(layout.optString("frameIdPath", null), record, nowMs, null);
+        final String defaultFrameId = layout.optString("defaultFrameId", null);
+        JSONObject selectedFrame = null;
+
+        for (int index = 0; index < frames.length(); index += 1) {
+            final JSONObject frame = frames.optJSONObject(index);
+            if (frame != null && frame.optString("id").equals(requestedFrameId)) {
+                selectedFrame = frame;
+                break;
+            }
+        }
+        if (selectedFrame == null && defaultFrameId != null) {
+            for (int index = 0; index < frames.length(); index += 1) {
+                final JSONObject frame = frames.optJSONObject(index);
+                if (frame != null && frame.optString("id").equals(defaultFrameId)) {
+                    selectedFrame = frame;
+                    break;
+                }
+            }
+        }
+        if (selectedFrame == null && frames.length() > 0) {
+            selectedFrame = frames.optJSONObject(0);
+        }
+
+        final JSONObject resolved = new JSONObject()
+            .put("frameId", selectedFrame == null ? JSONObject.NULL : selectedFrame.optString("id"))
+            .put("svg", selectedFrame == null ? layout.optString("svg", "") : selectedFrame.optString("svg", layout.optString("svg", "")));
+        final JSONArray hotspots =
+            selectedFrame != null && selectedFrame.optJSONArray("hotspots") != null
+                ? selectedFrame.optJSONArray("hotspots")
+                : layout.optJSONArray("hotspots");
+        resolved.put("hotspots", hotspots != null ? hotspots : new JSONArray());
+        return resolved;
     }
 
     static String createIdentifier(final String prefix) {
@@ -214,21 +266,27 @@ final class TemplateRuntime {
                         ? TemplateJsonUtils.coerceLong(previousTimer.opt("durationMs"))
                         : 0L;
             final Long startedAt =
-                previousTimer != null && previousTimer.has("startedAt")
+                previousTimer != null
                     ? TemplateJsonUtils.coerceLong(previousTimer.opt("startedAt"))
                     : resolveTimerStartAt(timerDefinition, record, nowMs);
             final String initialStatus =
                 previousTimer != null
                     ? previousTimer.optString("status", startedAt == null ? "idle" : "running")
                     : (startedAt == null ? "idle" : "running");
+            final Long elapsedMs = TemplateJsonUtils.coerceLong(previousTimer != null ? previousTimer.opt("elapsedMs") : null);
 
             final JSONObject timer = new JSONObject()
                 .put("id", timerId)
                 .put("startedAt", startedAt == null ? JSONObject.NULL : startedAt)
+                .put("elapsedMs", elapsedMs == null ? 0L : Math.max(0L, elapsedMs))
                 .put("durationMs", durationMs)
                 .put("status", initialStatus)
                 .put("updatedAt", nowMs);
             timer.put("status", TemplateJsonUtils.timerStatus(timer, nowMs));
+            if ("finished".equals(timer.optString("status"))) {
+                timer.put("startedAt", JSONObject.NULL);
+                timer.put("elapsedMs", durationMs);
+            }
             nextTimers.put(timerId, timer);
         }
 
@@ -332,6 +390,137 @@ final class TemplateRuntime {
         return JSONObject.NULL;
     }
 
+    private static String resolveFrameId(
+        final String frameIdTemplate,
+        final JSONObject activity,
+        final long nowMs,
+        final JSONObject actionScope
+    ) throws JSONException {
+        if (frameIdTemplate == null || frameIdTemplate.isEmpty()) {
+            return null;
+        }
+
+        final Object exact = TemplateJsonUtils.exactTokenValue(frameIdTemplate, activity, nowMs, actionScope);
+        if (exact != null) {
+            return TemplateJsonUtils.stringifyValue(exact);
+        }
+
+        final String resolved = TemplateJsonUtils.resolveTemplateString(frameIdTemplate, activity, nowMs, actionScope);
+        final Object referenced = TemplateJsonUtils.resolveReference(resolved, activity, nowMs, actionScope);
+        if (referenced != null) {
+            return TemplateJsonUtils.stringifyValue(referenced);
+        }
+        return resolved.isEmpty() ? null : resolved;
+    }
+
+    private static JSONArray frameIdsForMutation(final JSONObject activity, final JSONObject mutation) throws JSONException {
+        final JSONArray explicitFrameIds = mutation.optJSONArray("frameIds");
+        if (explicitFrameIds != null && explicitFrameIds.length() > 0) {
+            return explicitFrameIds;
+        }
+
+        final String surface = mutation.optString("surface", null);
+        if (surface == null || surface.isEmpty()) {
+            return new JSONArray();
+        }
+
+        final JSONObject layout = activity.getJSONObject("definition").getJSONObject("layouts").optJSONObject(surface);
+        final JSONArray frames = layout != null ? TemplateJsonUtils.arrayOrEmpty(layout, "frames") : new JSONArray();
+        final JSONArray frameIds = new JSONArray();
+        for (int index = 0; index < frames.length(); index += 1) {
+            final JSONObject frame = frames.optJSONObject(index);
+            if (frame != null && !frame.optString("id").isEmpty()) {
+                frameIds.put(frame.optString("id"));
+            }
+        }
+        return frameIds;
+    }
+
+    private static int indexOfString(final JSONArray values, final String target) {
+        for (int index = 0; index < values.length(); index += 1) {
+            if (target.equals(values.optString(index))) {
+                return index;
+            }
+        }
+        return -1;
+    }
+
+    private static void applyFrameMutation(
+        final JSONObject activity,
+        final JSONObject mutation,
+        final long nowMs,
+        final JSONObject actionScope
+    ) throws JSONException {
+        final String targetPath = TemplateJsonUtils.resolveRuntimePath(mutation.optString("path", ""), activity, nowMs, actionScope);
+        if (targetPath.isEmpty()) {
+            return;
+        }
+
+        final JSONArray frameIds = frameIdsForMutation(activity, mutation);
+        final String currentValue = TemplateJsonUtils.stringifyValue(
+            TemplateJsonUtils.getValueAtPath(activity.getJSONObject("state"), targetPath)
+        );
+        final int currentIndex = indexOfString(frameIds, currentValue);
+        final boolean wraps = !mutation.has("wrap") || mutation.optBoolean("wrap", true);
+        String nextFrameId = null;
+
+        final String operation = mutation.optString("op", "");
+        switch (operation) {
+            case "set":
+                nextFrameId = resolveFrameId(mutation.optString("frameId", null), activity, nowMs, actionScope);
+                break;
+            case "toggle": {
+                final String alternateFrameId = resolveFrameId(mutation.optString("frameId", null), activity, nowMs, actionScope);
+                if (frameIds.length() >= 2) {
+                    nextFrameId = currentValue.equals(frameIds.optString(0)) ? frameIds.optString(1) : frameIds.optString(0);
+                } else if (alternateFrameId != null) {
+                    nextFrameId = currentValue.equals(alternateFrameId) && frameIds.length() > 0 ? frameIds.optString(0) : alternateFrameId;
+                }
+                break;
+            }
+            case "next": {
+                if (frameIds.length() == 0) {
+                    break;
+                }
+                final int nextIndex = currentIndex < 0 ? 0 : currentIndex + 1;
+                nextFrameId =
+                    nextIndex < frameIds.length() ? frameIds.optString(nextIndex) : (wraps ? frameIds.optString(0) : currentValue);
+                break;
+            }
+            case "previous": {
+                if (frameIds.length() == 0) {
+                    break;
+                }
+                final int nextIndex = currentIndex < 0 ? frameIds.length() - 1 : currentIndex - 1;
+                nextFrameId =
+                    nextIndex >= 0 ? frameIds.optString(nextIndex) : (wraps ? frameIds.optString(frameIds.length() - 1) : currentValue);
+                break;
+            }
+            default:
+                break;
+        }
+
+        if (nextFrameId != null && !nextFrameId.isEmpty()) {
+            TemplateJsonUtils.setValueAtPath(activity.getJSONObject("state"), targetPath, nextFrameId);
+        }
+    }
+
+    private static void pauseTimer(final JSONObject timer, final long nowMs) throws JSONException {
+        final Long durationMs = TemplateJsonUtils.coerceLong(timer.opt("durationMs"));
+        timer.put("elapsedMs", Math.min(durationMs != null ? durationMs : 0L, TemplateJsonUtils.timerElapsedMs(timer, nowMs)));
+        timer.put("startedAt", JSONObject.NULL);
+        timer.put("status", TemplateJsonUtils.timerStatus(timer, nowMs));
+    }
+
+    private static void resumeTimer(final JSONObject timer, final long nowMs) throws JSONException {
+        if (!"paused".equals(timer.optString("status"))) {
+            timer.put("elapsedMs", 0L);
+        }
+        final Long durationMs = TemplateJsonUtils.coerceLong(timer.opt("durationMs"));
+        timer.put("startedAt", nowMs);
+        timer.put("status", durationMs != null && durationMs > 0L ? "running" : "idle");
+    }
+
     private static void applyTimerMutation(
         final JSONObject activity,
         final JSONObject mutation,
@@ -350,6 +539,7 @@ final class TemplateRuntime {
                 : new JSONObject()
                       .put("id", timerId)
                       .put("startedAt", JSONObject.NULL)
+                      .put("elapsedMs", 0L)
                       .put("durationMs", 0L)
                       .put("status", "idle")
                       .put("updatedAt", nowMs);
@@ -378,18 +568,45 @@ final class TemplateRuntime {
                             : 0L;
 
         timer.put("durationMs", Math.max(0L, durationMs));
+        timer.put(
+            "elapsedMs",
+            Math.max(
+                0L,
+                TemplateJsonUtils.coerceLong(timer.opt("elapsedMs")) != null ? TemplateJsonUtils.coerceLong(timer.opt("elapsedMs")) : 0L
+            )
+        );
         timer.put("updatedAt", nowMs);
 
         final String operation = mutation.optString("op", "");
         switch (operation) {
             case "start":
             case "restart":
+                timer.put("elapsedMs", 0L);
                 timer.put("startedAt", nowMs);
                 timer.put("status", durationMs > 0 ? "running" : "idle");
                 break;
+            case "pause":
+                pauseTimer(timer, nowMs);
+                break;
+            case "resume":
+                resumeTimer(timer, nowMs);
+                break;
+            case "toggle":
+                if ("running".equals(TemplateJsonUtils.timerStatus(timer, nowMs))) {
+                    pauseTimer(timer, nowMs);
+                } else {
+                    resumeTimer(timer, nowMs);
+                }
+                break;
             case "stop":
+                timer.put("elapsedMs", 0L);
                 timer.put("startedAt", JSONObject.NULL);
                 timer.put("status", "stopped");
+                break;
+            case "reset":
+                timer.put("elapsedMs", 0L);
+                timer.put("startedAt", JSONObject.NULL);
+                timer.put("status", "idle");
                 break;
             case "setDuration":
                 timer.put("status", TemplateJsonUtils.timerStatus(timer, nowMs));
@@ -399,6 +616,10 @@ final class TemplateRuntime {
         }
 
         timer.put("status", TemplateJsonUtils.timerStatus(timer, nowMs));
+        if ("finished".equals(timer.optString("status"))) {
+            timer.put("elapsedMs", timer.optLong("durationMs"));
+            timer.put("startedAt", JSONObject.NULL);
+        }
         timers.put(timerId, timer);
         activity.put("timers", timers);
     }

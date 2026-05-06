@@ -412,7 +412,9 @@ export function reconcileTimerStates(
   for (const timerDefinition of definition.timers ?? []) {
     const previous = existing[timerDefinition.id];
     const durationMs = resolveDuration(timerDefinition, activity, nowMs) || previous?.durationMs || 0;
-    const startedAt = previous ? (previous.startedAt ?? null) : resolveStartAt(timerDefinition, activity, nowMs);
+    const hasStartAtPath = typeof timerDefinition.startAtPath === 'string' && timerDefinition.startAtPath.length > 0;
+    const startedAt =
+      previous?.startedAt ?? (!previous || hasStartAtPath ? resolveStartAt(timerDefinition, activity, nowMs) : null);
     const timer: SvgTemplateTimerState = {
       id: timerDefinition.id,
       startedAt,
@@ -510,6 +512,7 @@ function resolveFrameId(
   activity: SvgTemplateActivityRecord,
   nowMs: number,
   action?: ActionRuntimeScope,
+  mode: 'literal' | 'path' = 'literal',
 ): string | undefined {
   if (!frameIdTemplate) {
     return undefined;
@@ -521,9 +524,11 @@ function resolveFrameId(
   }
 
   const resolved = resolveTemplateString(frameIdTemplate, activity, nowMs, action);
-  const referenced = resolveReference(resolved, activity, nowMs, action);
-  if (referenced !== undefined) {
-    return stringifyValue(referenced);
+  if (mode === 'path') {
+    const referenced = resolveReference(resolved, activity, nowMs, action);
+    if (referenced !== undefined) {
+      return stringifyValue(referenced);
+    }
   }
   return resolved || undefined;
 }
@@ -539,6 +544,13 @@ function frameIdsForMutation(activity: SvgTemplateActivityRecord, mutation: SvgT
   }
 
   return activity.definition.layouts[surface]?.frames?.map((frame) => frame.id) ?? [];
+}
+
+function normalizeFrameMutationId(frameId: string | undefined, frameIds: string[]): string | undefined {
+  if (!frameId) {
+    return undefined;
+  }
+  return frameIds.length === 0 || frameIds.includes(frameId) ? frameId : undefined;
 }
 
 function applyFrameMutation(
@@ -591,6 +603,7 @@ function applyFrameMutation(
       break;
   }
 
+  nextFrameId = normalizeFrameMutationId(nextFrameId, frameIds);
   if (nextFrameId) {
     setValueAtPath(activity.state, targetPath, nextFrameId);
   }
@@ -603,6 +616,9 @@ function pauseTimer(timer: SvgTemplateTimerState, nowMs: number): void {
 }
 
 function resumeTimer(timer: SvgTemplateTimerState, nowMs: number): void {
+  if (timer.status === 'stopped') {
+    return;
+  }
   if (timer.status !== 'paused') {
     timer.elapsedMs = 0;
   }
@@ -704,7 +720,7 @@ function resolveLayoutFrame(
   nowMs: number,
 ): { frameId?: string; svg: string; hotspots: SvgTemplateLayout['hotspots'] } {
   const frames = layout.frames ?? [];
-  const requestedFrameId = resolveFrameId(layout.frameIdPath, activity, nowMs);
+  const requestedFrameId = resolveFrameId(layout.frameIdPath, activity, nowMs, undefined, 'path');
   const requestedFrame = requestedFrameId == null ? undefined : frames.find((frame) => frame.id === requestedFrameId);
   const defaultFrame =
     layout.defaultFrameId == null ? undefined : frames.find((frame) => frame.id === layout.defaultFrameId);

@@ -202,7 +202,7 @@ final class TemplateRuntime {
 
     private static JSONObject resolveLayoutFrame(final JSONObject layout, final JSONObject record, final long nowMs) throws JSONException {
         final JSONArray frames = TemplateJsonUtils.arrayOrEmpty(layout, "frames");
-        final String requestedFrameId = resolveFrameId(layout.optString("frameIdPath", null), record, nowMs, null);
+        final String requestedFrameId = resolveFrameId(layout.optString("frameIdPath", null), record, nowMs, null, true);
         final String defaultFrameId = layout.optString("defaultFrameId", null);
         JSONObject selectedFrame = null;
 
@@ -266,10 +266,13 @@ final class TemplateRuntime {
                     : TemplateJsonUtils.coerceLong(previousTimer != null ? previousTimer.opt("durationMs") : null) != null
                         ? TemplateJsonUtils.coerceLong(previousTimer.opt("durationMs"))
                         : 0L;
+            final Long previousStartedAt = TemplateJsonUtils.coerceLong(previousTimer != null ? previousTimer.opt("startedAt") : null);
+            final String startAtPath = timerDefinition.optString("startAtPath", "");
+            final boolean shouldResolveStartAt = previousTimer == null || (previousStartedAt == null && !startAtPath.isEmpty());
             final Long startedAt =
-                previousTimer != null
-                    ? TemplateJsonUtils.coerceLong(previousTimer.opt("startedAt"))
-                    : resolveTimerStartAt(timerDefinition, record, nowMs);
+                previousStartedAt != null
+                    ? previousStartedAt
+                    : (shouldResolveStartAt ? resolveTimerStartAt(timerDefinition, record, nowMs) : null);
             final String initialStatus =
                 previousTimer != null
                     ? previousTimer.optString("status", startedAt == null ? "idle" : "running")
@@ -395,7 +398,8 @@ final class TemplateRuntime {
         final String frameIdTemplate,
         final JSONObject activity,
         final long nowMs,
-        final JSONObject actionScope
+        final JSONObject actionScope,
+        final boolean dereferenceReferences
     ) throws JSONException {
         if (frameIdTemplate == null || frameIdTemplate.isEmpty()) {
             return null;
@@ -407,9 +411,11 @@ final class TemplateRuntime {
         }
 
         final String resolved = TemplateJsonUtils.resolveTemplateString(frameIdTemplate, activity, nowMs, actionScope);
-        final Object referenced = TemplateJsonUtils.resolveReference(resolved, activity, nowMs, actionScope);
-        if (referenced != null) {
-            return TemplateJsonUtils.stringifyValue(referenced);
+        if (dereferenceReferences) {
+            final Object referenced = TemplateJsonUtils.resolveReference(resolved, activity, nowMs, actionScope);
+            if (referenced != null) {
+                return TemplateJsonUtils.stringifyValue(referenced);
+            }
         }
         return resolved.isEmpty() ? null : resolved;
     }
@@ -446,6 +452,13 @@ final class TemplateRuntime {
         return -1;
     }
 
+    private static String normalizeFrameMutationId(final String frameId, final JSONArray frameIds) {
+        if (frameId == null || frameId.isEmpty()) {
+            return null;
+        }
+        return frameIds.length() == 0 || indexOfString(frameIds, frameId) >= 0 ? frameId : null;
+    }
+
     private static void applyFrameMutation(
         final JSONObject activity,
         final JSONObject mutation,
@@ -468,10 +481,10 @@ final class TemplateRuntime {
         final String operation = mutation.optString("op", "");
         switch (operation) {
             case "set":
-                nextFrameId = resolveFrameId(mutation.optString("frameId", null), activity, nowMs, actionScope);
+                nextFrameId = resolveFrameId(mutation.optString("frameId", null), activity, nowMs, actionScope, false);
                 break;
             case "toggle": {
-                final String alternateFrameId = resolveFrameId(mutation.optString("frameId", null), activity, nowMs, actionScope);
+                final String alternateFrameId = resolveFrameId(mutation.optString("frameId", null), activity, nowMs, actionScope, false);
                 if (frameIds.length() >= 2) {
                     nextFrameId = currentValue.equals(frameIds.optString(0)) ? frameIds.optString(1) : frameIds.optString(0);
                 } else if (alternateFrameId != null) {
@@ -501,6 +514,7 @@ final class TemplateRuntime {
                 break;
         }
 
+        nextFrameId = normalizeFrameMutationId(nextFrameId, frameIds);
         if (nextFrameId != null && !nextFrameId.isEmpty()) {
             TemplateJsonUtils.setValueAtPath(activity.getJSONObject("state"), targetPath, nextFrameId);
         }
@@ -514,7 +528,11 @@ final class TemplateRuntime {
     }
 
     private static void resumeTimer(final JSONObject timer, final long nowMs) throws JSONException {
-        if (!"paused".equals(timer.optString("status"))) {
+        final String status = timer.optString("status");
+        if ("stopped".equals(status)) {
+            return;
+        }
+        if (!"paused".equals(status)) {
             timer.put("elapsedMs", 0L);
         }
         final Long durationMs = TemplateJsonUtils.coerceLong(timer.opt("durationMs"));

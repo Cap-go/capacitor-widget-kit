@@ -292,6 +292,7 @@ public final class CapgoNativeWidgetBridge {
 private final class NativeWidgetBridgeStore {
     private static let sessionIdsKey = "capgo.widgetkit.native.session-ids"
     private static let messageIdsKey = "capgo.widgetkit.native.message-ids"
+    private static let writeLock = NSLock()
 
     private let defaults: UserDefaults
     private let encoder = JSONEncoder()
@@ -309,11 +310,13 @@ private final class NativeWidgetBridgeStore {
     }
 
     func saveSession(_ session: StoredWidgetSessionEnvelope) throws {
-        defaults.set(try encoder.encode(session), forKey: sessionKey(session.widgetId))
-        var ids = sessionIds()
-        if !ids.contains(session.widgetId) {
-            ids.append(session.widgetId)
-            defaults.set(ids, forKey: Self.sessionIdsKey)
+        try withWriteLock {
+            defaults.set(try encoder.encode(session), forKey: sessionKey(session.widgetId))
+            var ids = sessionIds()
+            if !ids.contains(session.widgetId) {
+                ids.append(session.widgetId)
+                defaults.set(ids, forKey: Self.sessionIdsKey)
+            }
         }
     }
 
@@ -330,17 +333,25 @@ private final class NativeWidgetBridgeStore {
     }
 
     func saveMessage(_ message: StoredWidgetBridgeMessage) throws {
-        defaults.set(try encoder.encode(message), forKey: messageKey(message.messageId))
-        var ids = messageIds()
-        if !ids.contains(message.messageId) {
-            ids.append(message.messageId)
-            defaults.set(ids, forKey: Self.messageIdsKey)
+        try withWriteLock {
+            defaults.set(try encoder.encode(message), forKey: messageKey(message.messageId))
+            var ids = messageIds()
+            if !ids.contains(message.messageId) {
+                ids.append(message.messageId)
+                defaults.set(ids, forKey: Self.messageIdsKey)
+            }
         }
     }
 
     func listMessages() -> [StoredWidgetBridgeMessage] {
         messageIds().compactMap(loadMessage(messageId:))
             .sorted { $0.createdAtMs > $1.createdAtMs }
+    }
+
+    private func withWriteLock(_ body: () throws -> Void) throws {
+        Self.writeLock.lock()
+        defer { Self.writeLock.unlock() }
+        try body()
     }
 
     private func sessionIds() -> [String] {

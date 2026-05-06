@@ -397,6 +397,9 @@ export class CapgoWidgetKitWeb extends WebPlugin implements CapgoWidgetKitPlugin
     if (!message) {
       return { message: null };
     }
+    if (message.status !== 'pending' || message.completedAt != null) {
+      return { message: cloneJson(message) };
+    }
 
     const nextMessage: WidgetBridgeMessage = {
       ...cloneJson(message),

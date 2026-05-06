@@ -234,7 +234,7 @@ enum TemplateRuntime {
         nowMs: Int64
     ) -> (frameId: String?, svg: String, hotspots: Any?) {
         let frames = layoutObject["frames"] as? [[String: Any]] ?? []
-        let requestedFrameId = resolveFrameId(layoutObject["frameIdPath"] as? String, record: record, nowMs: nowMs)
+        let requestedFrameId = resolveFrameId(layoutObject["frameIdPath"] as? String, record: record, nowMs: nowMs, dereferenceReferences: true)
         let requestedFrame = frames.first(where: { ($0["id"] as? String) == requestedFrameId })
         let defaultFrame = frames.first(where: { ($0["id"] as? String) == (layoutObject["defaultFrameId"] as? String) })
         let selectedFrame = requestedFrame ?? defaultFrame ?? (layoutObject["svg"] == nil ? frames.first : nil)
@@ -317,7 +317,9 @@ enum TemplateRuntime {
 
             let previous = record.timers[timerId]
             let durationMs = resolveDuration(definition, record: record, nowMs: nowMs) ?? previous?.durationMs ?? 0
-            let startedAtMs = previous == nil ? resolveStartAt(definition, record: record, nowMs: nowMs) : previous?.startedAtMs
+            let hasStartAtPath = !((definition["startAtPath"] as? String) ?? "").isEmpty
+            let shouldResolveStartAt = previous == nil || (previous?.startedAtMs == nil && hasStartAtPath)
+            let startedAtMs = previous?.startedAtMs ?? (shouldResolveStartAt ? resolveStartAt(definition, record: record, nowMs: nowMs) : nil)
 
             var timer = StoredTemplateTimerState(
                 id: timerId,
@@ -501,7 +503,8 @@ enum TemplateRuntime {
         nowMs: Int64,
         actionId: String? = nil,
         sourceId: String? = nil,
-        payloadObject: [String: Any]? = nil
+        payloadObject: [String: Any]? = nil,
+        dereferenceReferences: Bool = false
     ) -> String? {
         guard let template, !template.isEmpty else {
             return nil
@@ -526,17 +529,25 @@ enum TemplateRuntime {
             sourceId: sourceId,
             payloadObject: payloadObject
         )
-        if let referenced = resolveReference(
+        if dereferenceReferences,
+           let referenced = resolveReference(
             resolved,
             record: record,
             nowMs: nowMs,
             actionId: actionId,
             sourceId: sourceId,
             payloadObject: payloadObject
-        ) {
+           ) {
             return stringifyValue(referenced)
         }
         return resolved.isEmpty ? nil : resolved
+    }
+
+    private static func normalizeFrameMutationId(_ frameId: String?, frameIds: [String]) -> String? {
+        guard let frameId, !frameId.isEmpty else {
+            return nil
+        }
+        return frameIds.isEmpty || frameIds.contains(frameId) ? frameId : nil
     }
 
     private static func applyFrameMutation(
@@ -607,6 +618,7 @@ enum TemplateRuntime {
             break
         }
 
+        nextFrameId = normalizeFrameMutationId(nextFrameId, frameIds: frameIds)
         if let nextFrameId, !nextFrameId.isEmpty {
             setValue(nextFrameId, at: resolvedPath, in: &record.state)
         }
@@ -619,6 +631,9 @@ enum TemplateRuntime {
     }
 
     private static func resumeTimer(_ timer: inout StoredTemplateTimerState, nowMs: Int64) {
+        if timer.status == "stopped" {
+            return
+        }
         if timer.status != "paused" {
             timer.elapsedMs = 0
         }

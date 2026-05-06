@@ -125,15 +125,15 @@ export interface SvgTemplateFrame {
 }
 
 /**
- * SVG layout variant for one WidgetKit surface.
+ * SVG layout variant backed by a base SVG string.
  */
-export interface SvgTemplateLayout {
+export interface SvgTemplateLayoutWithSvg {
   /**
    * Raw SVG template string used when no frame is selected.
    *
    * The runtime resolves `{{state.*}}`, `{{timers.*}}`, and `{{meta.*}}` placeholders before rendering.
    */
-  svg?: string;
+  svg: string;
 
   /**
    * Optional named SVG frames for click-driven or timer-driven frame changes.
@@ -167,6 +167,55 @@ export interface SvgTemplateLayout {
    */
   hotspots?: SvgTemplateHotspot[];
 }
+
+/**
+ * SVG layout variant backed by named SVG frames.
+ */
+export interface SvgTemplateLayoutWithFrames {
+  /**
+   * Raw SVG template string used when no frame is selected.
+   *
+   * The runtime resolves `{{state.*}}`, `{{timers.*}}`, and `{{meta.*}}` placeholders before rendering.
+   */
+  svg?: string;
+
+  /**
+   * Named SVG frames for click-driven or timer-driven frame changes.
+   */
+  frames: SvgTemplateFrame[];
+
+  /**
+   * Optional state/runtime path that resolves to the active frame id.
+   *
+   * Examples: `state.frame`, `state.widgets.{{state.activeIndex}}.frame`, or `{{state.frame}}`.
+   */
+  frameIdPath?: string;
+
+  /**
+   * Frame id used when `frameIdPath` is missing or resolves to an unknown frame.
+   */
+  defaultFrameId?: string;
+
+  /**
+   * Nominal SVG width used for scaling hotspots.
+   */
+  width: number;
+
+  /**
+   * Nominal SVG height used for scaling hotspots.
+   */
+  height: number;
+
+  /**
+   * Interactive overlay regions.
+   */
+  hotspots?: SvgTemplateHotspot[];
+}
+
+/**
+ * SVG layout variant for one WidgetKit surface.
+ */
+export type SvgTemplateLayout = SvgTemplateLayoutWithSvg | SvgTemplateLayoutWithFrames;
 
 /**
  * Bundle of optional WidgetKit surface layouts.
@@ -1074,7 +1123,17 @@ export interface SendWidgetMessageOptions {
 }
 
 /**
- * Result after sending or completing a widget bridge message.
+ * Result after sending a widget bridge message.
+ */
+export interface SendWidgetMessageResult {
+  /**
+   * Stored message snapshot.
+   */
+  message: WidgetBridgeMessage;
+}
+
+/**
+ * Result after completing a widget bridge message.
  */
 export interface WidgetMessageResult {
   /**
@@ -1247,7 +1306,7 @@ export interface CapgoWidgetKitPlugin {
   /**
    * Queue a message between the app and native widget code.
    */
-  sendWidgetMessage(options: SendWidgetMessageOptions): Promise<WidgetMessageResult>;
+  sendWidgetMessage(options: SendWidgetMessageOptions): Promise<SendWidgetMessageResult>;
 
   /**
    * List queued full-native widget bridge messages.

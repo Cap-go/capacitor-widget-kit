@@ -184,6 +184,9 @@ public class CapgoNativeWidgetBridge {
         if (message == null) {
             return null;
         }
+        if (!"pending".equals(message.optString("status")) || !message.isNull("completedAt")) {
+            return message;
+        }
         message.put("status", error == null ? "completed" : "failed");
         message.put("completedAt", System.currentTimeMillis());
         message.put("response", response == null ? JSONObject.NULL : TemplateJsonUtils.deepCopyObject(response));
@@ -194,12 +197,13 @@ public class CapgoNativeWidgetBridge {
 
     private void saveSession(final JSONObject session) throws JSONException {
         final String widgetId = session.getString("widgetId");
-        preferences.edit().putString(sessionKey(widgetId), session.toString()).apply();
+        final SharedPreferences.Editor editor = preferences.edit().putString(sessionKey(widgetId), session.toString());
         final List<String> ids = listIds(SESSION_IDS_KEY);
         if (!ids.contains(widgetId)) {
             ids.add(widgetId);
-            saveIds(SESSION_IDS_KEY, ids);
+            editor.putString(SESSION_IDS_KEY, serializeIds(ids).toString());
         }
+        editor.apply();
     }
 
     private JSONObject loadMessage(final String messageId) throws JSONException {
@@ -209,12 +213,13 @@ public class CapgoNativeWidgetBridge {
 
     private void saveMessage(final JSONObject message) throws JSONException {
         final String messageId = message.getString("messageId");
-        preferences.edit().putString(messageKey(messageId), message.toString()).apply();
+        final SharedPreferences.Editor editor = preferences.edit().putString(messageKey(messageId), message.toString());
         final List<String> ids = listIds(MESSAGE_IDS_KEY);
         if (!ids.contains(messageId)) {
             ids.add(messageId);
-            saveIds(MESSAGE_IDS_KEY, ids);
+            editor.putString(MESSAGE_IDS_KEY, serializeIds(ids).toString());
         }
+        editor.apply();
     }
 
     private JSONObject mergeObjects(final JSONObject base, final JSONObject patch) throws JSONException {
@@ -267,12 +272,12 @@ public class CapgoNativeWidgetBridge {
         return ids;
     }
 
-    private void saveIds(final String key, final List<String> ids) {
+    private JSONArray serializeIds(final List<String> ids) {
         final JSONArray values = new JSONArray();
         for (String id : ids) {
             values.put(id);
         }
-        preferences.edit().putString(key, values.toString()).apply();
+        return values;
     }
 
     private String normalizeDirection(final String direction) {

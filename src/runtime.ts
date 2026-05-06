@@ -705,10 +705,10 @@ function resolveLayoutFrame(
 ): { frameId?: string; svg: string; hotspots: SvgTemplateLayout['hotspots'] } {
   const frames = layout.frames ?? [];
   const requestedFrameId = resolveFrameId(layout.frameIdPath, activity, nowMs);
-  const selectedFrame =
-    frames.find((frame) => frame.id === requestedFrameId) ??
-    frames.find((frame) => frame.id === layout.defaultFrameId) ??
-    frames[0];
+  const requestedFrame = requestedFrameId == null ? undefined : frames.find((frame) => frame.id === requestedFrameId);
+  const defaultFrame =
+    layout.defaultFrameId == null ? undefined : frames.find((frame) => frame.id === layout.defaultFrameId);
+  const selectedFrame = requestedFrame ?? defaultFrame ?? (layout.svg == null ? frames[0] : undefined);
 
   return {
     frameId: selectedFrame?.id,

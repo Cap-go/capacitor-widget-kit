@@ -235,6 +235,9 @@ public final class CapgoNativeWidgetBridge {
         guard var message = store.loadMessage(messageId: messageId) else {
             return nil
         }
+        if message.status != .pending || message.completedAtMs != nil {
+            return message
+        }
         message.status = error == nil ? .completed : .failed
         message.completedAtMs = completedAtMs
         message.responseData = try responseObject.map(TemplateRuntime.jsonData(from:))
@@ -312,7 +315,6 @@ private final class NativeWidgetBridgeStore {
             ids.append(session.widgetId)
             defaults.set(ids, forKey: Self.sessionIdsKey)
         }
-        defaults.synchronize()
     }
 
     func listSessions() -> [StoredWidgetSessionEnvelope] {
@@ -334,7 +336,6 @@ private final class NativeWidgetBridgeStore {
             ids.append(message.messageId)
             defaults.set(ids, forKey: Self.messageIdsKey)
         }
-        defaults.synchronize()
     }
 
     func listMessages() -> [StoredWidgetBridgeMessage] {

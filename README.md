@@ -158,7 +158,7 @@ const { message } = await CapgoWidgetKit.sendWidgetMessage({
 });
 
 await CapgoWidgetKit.completeWidgetMessage({
-  messageId: message!.messageId,
+  messageId: message.messageId,
   response: { synced: true },
 });
 
@@ -446,7 +446,7 @@ List every full-native widget session currently known by the plugin.
 ### sendWidgetMessage(...)
 
 ```typescript
-sendWidgetMessage(options: SendWidgetMessageOptions) => Promise<WidgetMessageResult>
+sendWidgetMessage(options: SendWidgetMessageOptions) => Promise<SendWidgetMessageResult>
 ```
 
 Queue a message between the app and native widget code.
@@ -455,7 +455,7 @@ Queue a message between the app and native widget code.
 | ------------- | ----------------------------------------------------------------------------- |
 | **`options`** | <code><a href="#sendwidgetmessageoptions">SendWidgetMessageOptions</a></code> |
 
-**Returns:** <code>Promise&lt;<a href="#widgetmessageresult">WidgetMessageResult</a>&gt;</code>
+**Returns:** <code>Promise&lt;<a href="#sendwidgetmessageresult">SendWidgetMessageResult</a>&gt;</code>
 
 --------------------
 
@@ -587,9 +587,9 @@ Bundle of optional WidgetKit surface layouts.
 | **`dynamicIslandMinimal`**         | <code><a href="#svgtemplatelayout">SvgTemplateLayout</a></code> | Optional minimal Dynamic Island layout.          |
 
 
-#### SvgTemplateLayout
+#### SvgTemplateLayoutWithSvg
 
-SVG layout variant for one WidgetKit surface.
+SVG layout variant backed by a base SVG string.
 
 | Prop                 | Type                              | Description                                                                                                                                                   |
 | -------------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -633,6 +633,21 @@ Interactive region overlaid on top of a rendered SVG layout.
 #### JsonObject
 
 JSON-safe object used as activity state.
+
+
+#### SvgTemplateLayoutWithFrames
+
+SVG layout variant backed by named SVG frames.
+
+| Prop                 | Type                              | Description                                                                                                                                                   |
+| -------------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`svg`**            | <code>string</code>               | Raw SVG template string used when no frame is selected. The runtime resolves `{{state.*}}`, `{{timers.*}}`, and `{{meta.*}}` placeholders before rendering.   |
+| **`frames`**         | <code>SvgTemplateFrame[]</code>   | Named SVG frames for click-driven or timer-driven frame changes.                                                                                              |
+| **`frameIdPath`**    | <code>string</code>               | Optional state/runtime path that resolves to the active frame id. Examples: `state.frame`, `state.widgets.{{state.activeIndex}}.frame`, or `{{state.frame}}`. |
+| **`defaultFrameId`** | <code>string</code>               | Frame id used when `frameIdPath` is missing or resolves to an unknown frame.                                                                                  |
+| **`width`**          | <code>number</code>               | Nominal SVG width used for scaling hotspots.                                                                                                                  |
+| **`height`**         | <code>number</code>               | Nominal SVG height used for scaling hotspots.                                                                                                                 |
+| **`hotspots`**       | <code>SvgTemplateHotspot[]</code> | Interactive overlay regions.                                                                                                                                  |
 
 
 #### SvgTemplateActionDefinition
@@ -933,13 +948,13 @@ Result when listing full-native widget sessions.
 | **`sessions`** | <code>WidgetSessionRecord[]</code> | Stored session snapshots. |
 
 
-#### WidgetMessageResult
+#### SendWidgetMessageResult
 
-Result after sending or completing a widget bridge message.
+Result after sending a widget bridge message.
 
-| Prop          | Type                                                                        | Description                                        |
-| ------------- | --------------------------------------------------------------------------- | -------------------------------------------------- |
-| **`message`** | <code><a href="#widgetbridgemessage">WidgetBridgeMessage</a> \| null</code> | Stored message snapshot, or `null` when not found. |
+| Prop          | Type                                                                | Description              |
+| ------------- | ------------------------------------------------------------------- | ------------------------ |
+| **`message`** | <code><a href="#widgetbridgemessage">WidgetBridgeMessage</a></code> | Stored message snapshot. |
 
 
 #### WidgetBridgeMessage
@@ -1007,6 +1022,15 @@ Options for acknowledging widget bridge messages after processing them.
 | **`direction`**  | <code><a href="#widgetmessagedirection">WidgetMessageDirection</a></code> | Optional direction filter.                                            |
 
 
+#### WidgetMessageResult
+
+Result after completing a widget bridge message.
+
+| Prop          | Type                                                                        | Description                                        |
+| ------------- | --------------------------------------------------------------------------- | -------------------------------------------------- |
+| **`message`** | <code><a href="#widgetbridgemessage">WidgetBridgeMessage</a> \| null</code> | Stored message snapshot, or `null` when not found. |
+
+
 #### CompleteWidgetMessageOptions
 
 Options for completing an async widget bridge message.
@@ -1028,6 +1052,13 @@ Result payload for plugin version queries.
 
 
 ### Type Aliases
+
+
+#### SvgTemplateLayout
+
+SVG layout variant for one WidgetKit surface.
+
+<code><a href="#svgtemplatelayoutwithsvg">SvgTemplateLayoutWithSvg</a> | <a href="#svgtemplatelayoutwithframes">SvgTemplateLayoutWithFrames</a></code>
 
 
 #### JsonValue

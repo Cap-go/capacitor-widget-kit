@@ -235,9 +235,9 @@ enum TemplateRuntime {
     ) -> (frameId: String?, svg: String, hotspots: Any?) {
         let frames = layoutObject["frames"] as? [[String: Any]] ?? []
         let requestedFrameId = resolveFrameId(layoutObject["frameIdPath"] as? String, record: record, nowMs: nowMs)
-        let selectedFrame = frames.first(where: { ($0["id"] as? String) == requestedFrameId })
-            ?? frames.first(where: { ($0["id"] as? String) == (layoutObject["defaultFrameId"] as? String) })
-            ?? frames.first
+        let requestedFrame = frames.first(where: { ($0["id"] as? String) == requestedFrameId })
+        let defaultFrame = frames.first(where: { ($0["id"] as? String) == (layoutObject["defaultFrameId"] as? String) })
+        let selectedFrame = requestedFrame ?? defaultFrame ?? (layoutObject["svg"] == nil ? frames.first : nil)
 
         return (
             frameId: selectedFrame?["id"] as? String,

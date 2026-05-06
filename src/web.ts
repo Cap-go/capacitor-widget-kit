@@ -31,6 +31,7 @@ import type {
   UpdateTemplateActivityOptions,
   UpdateWidgetSessionOptions,
   WidgetBridgeMessage,
+  SendWidgetMessageResult,
   WidgetMessageResult,
   WidgetSessionRecord,
   WidgetSessionResult,
@@ -294,6 +295,7 @@ export class CapgoWidgetKitWeb extends WebPlugin implements CapgoWidgetKitPlugin
           : options.merge
             ? mergeJsonObject(current.metadata ?? {}, options.metadata)
             : cloneJson(options.metadata),
+      status: 'active',
       updatedAt: Date.now(),
       revision: current.revision + 1,
     };
@@ -331,7 +333,7 @@ export class CapgoWidgetKitWeb extends WebPlugin implements CapgoWidgetKitPlugin
     return { sessions: sortSessions(Object.values(store.sessions).map((session) => cloneJson(session))) };
   }
 
-  async sendWidgetMessage(options: SendWidgetMessageOptions): Promise<WidgetMessageResult> {
+  async sendWidgetMessage(options: SendWidgetMessageOptions): Promise<SendWidgetMessageResult> {
     const store = loadStore();
     const now = Date.now();
     const message: WidgetBridgeMessage = {

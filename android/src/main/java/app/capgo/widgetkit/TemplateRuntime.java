@@ -222,7 +222,8 @@ final class TemplateRuntime {
                 }
             }
         }
-        if (selectedFrame == null && frames.length() > 0) {
+        final boolean hasBaseSvg = layout.has("svg") && !layout.isNull("svg");
+        if (selectedFrame == null && !hasBaseSvg && frames.length() > 0) {
             selectedFrame = frames.optJSONObject(0);
         }
 

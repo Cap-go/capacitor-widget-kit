@@ -42,6 +42,9 @@ jobs:
       - name: Build
         id: build_code
         run: bun run verify:android
+      - name: Verify packed package in example app (Android)
+        shell: bash
+        run: bash ./.github/scripts/verify-packed-example.sh android
   build_ios:
     timeout-minutes: 30
     runs-on: macOS-latest
@@ -57,6 +60,9 @@ jobs:
       - name: Build
         id: build_code
         run: bun run verify:ios
+      - name: Verify packed package in example app (iOS)
+        shell: bash
+        run: bash ./.github/scripts/verify-packed-example.sh ios
   js:
     timeout-minutes: 30
     runs-on: ubuntu-latest

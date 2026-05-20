@@ -1,6 +1,6 @@
 {
   "name": "@capgo/capacitor-widget-kit",
-  "version": "8.1.0",
+  "version": "8.1.1",
   "private": false,
   "description": "Capacitor plugin for generic iOS WidgetKit and Live Activities using SVG templates, declarative actions, and shared App Group persistence.",
   "main": "dist/plugin.cjs.js",

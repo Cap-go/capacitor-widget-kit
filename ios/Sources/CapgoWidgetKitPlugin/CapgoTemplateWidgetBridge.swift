@@ -102,6 +102,15 @@ public final class CapgoTemplateWidgetBridge {
         try TemplateActivityStore.make(bundle: bundle).listEnvelopes()
     }
 
+    public func latestActivity(status: String? = "active", bundle: Bundle = .main) throws -> StoredTemplateActivityEnvelope? {
+        try listActivities(bundle: bundle).first { envelope in
+            guard let status else {
+                return true
+            }
+            return envelope.status == status
+        }
+    }
+
     public func resolveLayout(
         activityId: String,
         surface: CapgoTemplateSurface,
@@ -141,6 +150,18 @@ public final class CapgoTemplateWidgetBridge {
             revision: record.revision,
             updatedAtMs: record.updatedAtMs
         )
+    }
+
+    public func resolveLatestLayout(
+        surface: CapgoTemplateSurface,
+        status: String? = "active",
+        bundle: Bundle = .main,
+        now: Date = Date()
+    ) throws -> CapgoResolvedTemplateLayout? {
+        guard let envelope = try latestActivity(status: status, bundle: bundle) else {
+            return nil
+        }
+        return try resolveLayout(activityId: envelope.activityId, surface: surface, bundle: bundle, now: now)
     }
 
     private func parseHotspots(_ value: Any?) -> [CapgoTemplateResolvedHotspot] {

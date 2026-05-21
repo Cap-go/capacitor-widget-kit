@@ -348,6 +348,12 @@ public class CapgoWidgetKitPlugin extends Plugin {
     }
 
     @PluginMethod
+    public void reloadWidgets(final PluginCall call) {
+        implementation.reloadWidgets(call.getString("kind"));
+        call.resolve();
+    }
+
+    @PluginMethod
     public void getPluginVersion(final PluginCall call) {
         try {
             call.resolve(toJsObject(implementation.getPluginVersion()));

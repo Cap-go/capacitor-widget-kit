@@ -24,6 +24,7 @@ public class CapgoWidgetKitPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "listWidgetMessages", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "acknowledgeWidgetMessages", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "completeWidgetMessage", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "reloadWidgets", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "getPluginVersion", returnType: CAPPluginReturnPromise)
     ]
 
@@ -50,7 +51,8 @@ public class CapgoWidgetKitPlugin: CAPPlugin, CAPBridgedPlugin {
                     activityId: call.getString("activityId"),
                     definitionObject: definition,
                     stateObject: state,
-                    openUrl: call.getString("openUrl")
+                    openUrl: call.getString("openUrl"),
+                    startLiveActivity: call.getBool("startLiveActivity") ?? true
                 )
                 call.resolve(payload)
             } catch {
@@ -314,6 +316,11 @@ public class CapgoWidgetKitPlugin: CAPPlugin, CAPBridgedPlugin {
         } catch {
             call.reject(error.localizedDescription)
         }
+    }
+
+    @objc func reloadWidgets(_ call: CAPPluginCall) {
+        implementation.reloadWidgets(kind: call.getString("kind"))
+        call.resolve()
     }
 
     @objc func getPluginVersion(_ call: CAPPluginCall) {

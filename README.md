@@ -48,6 +48,7 @@ The plugin ships the native pieces a widget extension or Android widget can use:
 - `CapgoTemplateActivityAttributes` for the iOS Live Activity bridge
 - `CapgoTemplateActionIntent` for interactive iOS template buttons
 - `CapgoTemplateWidgetBridge` to load a stored SVG activity and resolve one surface into `svg + width/height + frameId + hotspots + metadata`
+- `CapgoTemplateSurfaceView`, `CapgoTemplateWidgetSurface`, and `CapgoTemplateLatestWidgetSurface` to place a rendered SVG view under native hotspot buttons in SwiftUI
 - `CapgoNativeWidgetBridge` to load full-native widget sessions and exchange async messages without using SVG templates
 - `CapgoTemplateActionReceiver` and `CapgoTemplateWidgetBridge` for Android template widgets
 
@@ -69,7 +70,18 @@ struct ExampleWidgetBundle: WidgetBundle {
 }
 ```
 
-See `example-app/widget-extension/ExampleWidgetBundle.swift` for a complete scaffold. The sample intentionally uses a placeholder card so you can plug in your own SVG renderer while keeping the same bridge and action intent wiring.
+Use the SwiftUI surface helpers when the widget should be designed from JS but rendered by native widget code:
+
+```swift
+CapgoTemplateLatestWidgetSurface {
+    layout in
+    MySvgRenderer(svg: layout.svg)
+} placeholder: {
+    Text("No active widget")
+}
+```
+
+The helper positions `CapgoTemplateActionIntent` buttons over the resolved SVG hotspots on iOS 17+. See `example-app/widget-extension/ExampleWidgetBundle.swift` for a complete scaffold.
 
 ## SVG Template Usage
 
@@ -81,6 +93,7 @@ import { CapgoWidgetKit } from '@capgo/capacitor-widget-kit';
 const { activity } = await CapgoWidgetKit.startTemplateActivity({
   activityId: 'session-1',
   openUrl: 'widgetkitdemo://session/session-1',
+  startLiveActivity: false,
   state: {
     title: 'Chest Day',
     frame: 'summary',
@@ -122,6 +135,8 @@ const { activity } = await CapgoWidgetKit.startTemplateActivity({
     },
   },
 });
+
+await CapgoWidgetKit.reloadWidgets();
 
 await CapgoWidgetKit.performTemplateAction({
   activityId: activity.activityId,
@@ -204,6 +219,7 @@ The workout helper is only used there as an example template factory.
 * [`listWidgetMessages(...)`](#listwidgetmessages)
 * [`acknowledgeWidgetMessages(...)`](#acknowledgewidgetmessages)
 * [`completeWidgetMessage(...)`](#completewidgetmessage)
+* [`reloadWidgets(...)`](#reloadwidgets)
 * [`getPluginVersion()`](#getpluginversion)
 * [Interfaces](#interfaces)
 * [Type Aliases](#type-aliases)
@@ -513,6 +529,21 @@ Complete or fail an async widget bridge message.
 --------------------
 
 
+### reloadWidgets(...)
+
+```typescript
+reloadWidgets(options?: ReloadWidgetsOptions | undefined) => Promise<void>
+```
+
+Ask native widgets to reload after external app state changes.
+
+| Param         | Type                                                                  |
+| ------------- | --------------------------------------------------------------------- |
+| **`options`** | <code><a href="#reloadwidgetsoptions">ReloadWidgetsOptions</a></code> |
+
+--------------------
+
+
 ### getPluginVersion()
 
 ```typescript
@@ -740,12 +771,13 @@ Persisted timer runtime state.
 
 Options for starting a generic SVG template activity.
 
-| Prop             | Type                                                                    | Description                                                                          |
-| ---------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| **`activityId`** | <code>string</code>                                                     | Optional explicit activity identifier. When omitted, the native runtime creates one. |
-| **`definition`** | <code><a href="#svgtemplatedefinition">SvgTemplateDefinition</a></code> | Generic SVG template definition.                                                     |
-| **`state`**      | <code><a href="#svgtemplatestate">SvgTemplateState</a></code>           | Initial JSON state exposed under `state.*`.                                          |
-| **`openUrl`**    | <code>string</code>                                                     | Optional deep link used when the widget body is tapped.                              |
+| Prop                    | Type                                                                    | Description                                                                                                                                                                       |
+| ----------------------- | ----------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`activityId`**        | <code>string</code>                                                     | Optional explicit activity identifier. When omitted, the native runtime creates one.                                                                                              |
+| **`definition`**        | <code><a href="#svgtemplatedefinition">SvgTemplateDefinition</a></code> | Generic SVG template definition.                                                                                                                                                  |
+| **`state`**             | <code><a href="#svgtemplatestate">SvgTemplateState</a></code>           | Initial JSON state exposed under `state.*`.                                                                                                                                       |
+| **`openUrl`**           | <code>string</code>                                                     | Optional deep link used when the widget body is tapped.                                                                                                                           |
+| **`startLiveActivity`** | <code>boolean</code>                                                    | Whether iOS should also start a native Live Activity. Defaults to `true`. Set to `false` when the same SVG template should only back a home-screen or lock-screen widget surface. |
 
 
 #### TemplateActivityResult
@@ -1044,6 +1076,15 @@ Options for completing an async widget bridge message.
 | **`messageId`** | <code>string</code>                               | Message identifier returned by `sendWidgetMessage`.                   |
 | **`response`**  | <code><a href="#jsonobject">JsonObject</a></code> | Optional JSON response payload.                                       |
 | **`error`**     | <code>string</code>                               | Optional error string. When set, the message status becomes `failed`. |
+
+
+#### ReloadWidgetsOptions
+
+Options for forcing installed native widgets to reload their timeline.
+
+| Prop       | Type                | Description                                                                                    |
+| ---------- | ------------------- | ---------------------------------------------------------------------------------------------- |
+| **`kind`** | <code>string</code> | Optional native widget kind to reload on iOS. When omitted, every widget timeline is reloaded. |
 
 
 #### PluginVersionResult

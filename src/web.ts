@@ -413,6 +413,10 @@ export class CapgoWidgetKitWeb extends WebPlugin implements CapgoWidgetKitPlugin
     return { message: cloneJson(nextMessage) };
   }
 
+  async reloadWidgets(): Promise<void> {
+    return;
+  }
+
   async getPluginVersion(): Promise<PluginVersionResult> {
     return {
       version: 'web-preview',

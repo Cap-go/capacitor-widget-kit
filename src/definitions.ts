@@ -703,6 +703,14 @@ export interface StartTemplateActivityOptions {
    * Optional deep link used when the widget body is tapped.
    */
   openUrl?: string;
+
+  /**
+   * Whether iOS should also start a native Live Activity.
+   *
+   * Defaults to `true`. Set to `false` when the same SVG template should only back
+   * a home-screen or lock-screen widget surface.
+   */
+  startLiveActivity?: boolean;
 }
 
 /**
@@ -1218,6 +1226,16 @@ export interface CompleteWidgetMessageOptions {
 }
 
 /**
+ * Options for forcing installed native widgets to reload their timeline.
+ */
+export interface ReloadWidgetsOptions {
+  /**
+   * Optional native widget kind to reload on iOS. When omitted, every widget timeline is reloaded.
+   */
+  kind?: string;
+}
+
+/**
  * Capacitor bridge for an iOS-first WidgetKit / Live Activities plugin.
  *
  * The core abstraction is a generic SVG template activity:
@@ -1322,6 +1340,11 @@ export interface CapgoWidgetKitPlugin {
    * Complete or fail an async widget bridge message.
    */
   completeWidgetMessage(options: CompleteWidgetMessageOptions): Promise<WidgetMessageResult>;
+
+  /**
+   * Ask native widgets to reload after external app state changes.
+   */
+  reloadWidgets(options?: ReloadWidgetsOptions): Promise<void>;
 
   /**
    * Return the platform implementation version marker.

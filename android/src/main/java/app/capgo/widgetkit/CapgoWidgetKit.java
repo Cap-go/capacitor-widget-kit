@@ -185,6 +185,11 @@ public class CapgoWidgetKit {
         return message;
     }
 
+    public void reloadWidgets(final String kind) {
+        notifyStoreChanged(null);
+        notifyWidgetBridgeChanged(null, null);
+    }
+
     public JSONObject getPluginVersion() throws JSONException {
         String versionName = "android";
         try {
@@ -199,9 +204,10 @@ public class CapgoWidgetKit {
     }
 
     private void notifyStoreChanged(final String activityId) {
-        final Intent intent = new Intent(CapgoWidgetKitConstants.ACTION_TEMPLATE_STORE_CHANGED)
-            .setPackage(context.getPackageName())
-            .putExtra(CapgoWidgetKitConstants.EXTRA_ACTIVITY_ID, activityId);
+        final Intent intent = new Intent(CapgoWidgetKitConstants.ACTION_TEMPLATE_STORE_CHANGED).setPackage(context.getPackageName());
+        if (activityId != null) {
+            intent.putExtra(CapgoWidgetKitConstants.EXTRA_ACTIVITY_ID, activityId);
+        }
         context.sendBroadcast(intent);
     }
 

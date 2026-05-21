@@ -2,6 +2,9 @@
 import ActivityKit
 #endif
 import Foundation
+#if canImport(WidgetKit)
+import WidgetKit
+#endif
 
 public struct TemplateActivityInfo: Hashable, Sendable {
     public let activityId: String
@@ -55,7 +58,8 @@ public final class TemplateLiveActivityManager {
         activityId requestedActivityId: String?,
         definitionObject: [String: Any],
         stateObject: [String: Any],
-        openUrl: String?
+        openUrl: String?,
+        startLiveActivity: Bool = true
     ) async throws -> StoredTemplateActivityEnvelope {
         let nowMs = Int64(Date().timeIntervalSince1970 * 1000)
         let activityId: String
@@ -74,7 +78,7 @@ public final class TemplateLiveActivityManager {
         let store = try TemplateActivityStore.make()
 
         #if canImport(ActivityKit)
-        if #available(iOS 16.2, *) {
+        if #available(iOS 16.2, *), startLiveActivity {
             let activity = try Activity.request(
                 attributes: CapgoTemplateActivityAttributes(
                     activityId: activityId,
@@ -91,6 +95,7 @@ public final class TemplateLiveActivityManager {
 
         let envelope = try record.toEnvelope()
         try store.saveEnvelope(envelope)
+        reloadWidgetTimelines()
         return envelope
     }
 
@@ -123,6 +128,7 @@ public final class TemplateLiveActivityManager {
         let envelope = try record.toEnvelope()
         try store.saveEnvelope(envelope)
         try await updateNativeActivity(for: envelope)
+        reloadWidgetTimelines()
         return envelope
     }
 
@@ -150,6 +156,7 @@ public final class TemplateLiveActivityManager {
         #endif
 
         store.removeNativeActivityId(for: activityId)
+        reloadWidgetTimelines()
     }
 
     public func performAction(
@@ -177,6 +184,7 @@ public final class TemplateLiveActivityManager {
         try store.saveEnvelope(envelope)
         try store.appendEvent(event)
         try await updateNativeActivity(for: envelope)
+        reloadWidgetTimelines()
         return (envelope, event)
     }
 
@@ -209,6 +217,15 @@ public final class TemplateLiveActivityManager {
                 activityId: activityId,
                 acknowledgedAtMs: Int64(Date().timeIntervalSince1970 * 1000)
             )
+        reloadWidgetTimelines()
+    }
+
+    private func reloadWidgetTimelines() {
+        #if canImport(WidgetKit)
+        if #available(iOS 14.0, *) {
+            WidgetCenter.shared.reloadAllTimelines()
+        }
+        #endif
     }
 
     #if canImport(ActivityKit)

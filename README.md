@@ -12,6 +12,35 @@ Create Home Screen WidgetKit, ActivityKit, and Android widget experiences from C
 
 <img src="./docs/demo.webp" alt="Demo of capacitor-widget-kit in action" width="300" />
 
+## Widget Screenshots
+
+<table>
+  <tr>
+    <td align="center">
+      <img src="./docs/screenshots/home-screen-widget.svg" alt="iOS Home Screen / SpringBoard widget screenshot" width="260" />
+      <br />
+      <sub>iOS Home Screen / SpringBoard</sub>
+    </td>
+    <td align="center">
+      <img src="./docs/screenshots/lock-screen-live-activity.svg" alt="iOS Lock Screen Live Activity widget screenshot" width="260" />
+      <br />
+      <sub>iOS Lock Screen / Live Activity</sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center">
+      <img src="./docs/screenshots/dynamic-island-widget.svg" alt="iOS Dynamic Island widget screenshot" width="260" />
+      <br />
+      <sub>iOS Dynamic Island</sub>
+    </td>
+    <td align="center">
+      <img src="./docs/screenshots/android-app-widget.svg" alt="Android AppWidget screenshot" width="260" />
+      <br />
+      <sub>Android AppWidget</sub>
+    </td>
+  </tr>
+</table>
+
 The plugin has two implementation paths:
 
 - SVG template widgets: store Home Screen, Lock Screen, Dynamic Island, and Android layouts with optional named frames, hotspots, declarative state patches, pause/resume timers, and interaction events. Use this when your widget can be driven by resolved SVG output.

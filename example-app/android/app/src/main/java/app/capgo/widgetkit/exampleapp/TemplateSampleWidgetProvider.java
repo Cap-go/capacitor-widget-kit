@@ -18,7 +18,7 @@ import org.json.JSONObject;
 
 public class TemplateSampleWidgetProvider extends AppWidgetProvider {
 
-    private static final String SURFACE_LOCK_SCREEN = "lockScreen";
+    private static final String SURFACE_HOME_SCREEN = "homeScreen";
     private static final int PREVIEW_WIDTH_PX = 720;
     private static final int PREVIEW_HEIGHT_PX = 360;
 
@@ -65,7 +65,7 @@ public class TemplateSampleWidgetProvider extends AppWidgetProvider {
                 return views;
             }
 
-            final JSONObject layout = bridge.resolveLayout(activity.optString("activityId"), SURFACE_LOCK_SCREEN);
+            final JSONObject layout = bridge.resolveLayout(activity.optString("activityId"), SURFACE_HOME_SCREEN);
             if (layout == null) {
                 renderEmptyState(views);
                 return views;

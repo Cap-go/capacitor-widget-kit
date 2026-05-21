@@ -32,6 +32,15 @@ public class CapgoWidgetKitPlugin extends Plugin {
 
     @PluginMethod
     public void startTemplateActivity(final PluginCall call) {
+        startTemplateRecord(call);
+    }
+
+    @PluginMethod
+    public void startTemplateWidget(final PluginCall call) {
+        startTemplateRecord(call);
+    }
+
+    private void startTemplateRecord(final PluginCall call) {
         final JSObject definition = call.getObject("definition");
         final JSObject state = call.getObject("state");
 

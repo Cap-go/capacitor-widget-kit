@@ -6,9 +6,28 @@ import CapgoWidgetKitPlugin
 @main
 struct ExampleWidgetBundle: WidgetBundle {
     var body: some Widget {
+        ExampleTemplateHomeWidget()
+
         if #available(iOS 16.2, *) {
             ExampleTemplateLiveActivityWidget()
         }
+    }
+}
+
+struct ExampleTemplateHomeWidget: Widget {
+    private let kind = "ExampleTemplateHomeWidget"
+
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: kind, provider: CapgoTemplateWidgetTimelineProvider()) { entry in
+            CapgoTemplateHomeWidgetView(entry: entry) { layout in
+                ExampleTemplateSurfaceCard(layout: layout)
+            } placeholder: {
+                ExampleTemplateSurfaceCard(layout: nil)
+            }
+        }
+        .configurationDisplayName("Capgo Template")
+        .description("Home Screen widget rendered from the shared Capgo SVG template store.")
+        .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
     }
 }
 

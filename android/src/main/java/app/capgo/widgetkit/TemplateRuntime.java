@@ -167,7 +167,7 @@ final class TemplateRuntime {
 
     static JSONObject resolveSurface(final JSONObject record, final String surface, final long nowMs) throws JSONException {
         final JSONObject layouts = record.getJSONObject("definition").getJSONObject("layouts");
-        final JSONObject layout = layouts.optJSONObject(surface);
+        final JSONObject layout = layoutForSurface(layouts, surface);
         if (layout == null) {
             return null;
         }
@@ -431,7 +431,7 @@ final class TemplateRuntime {
             return new JSONArray();
         }
 
-        final JSONObject layout = activity.getJSONObject("definition").getJSONObject("layouts").optJSONObject(surface);
+        final JSONObject layout = layoutForSurface(activity.getJSONObject("definition").getJSONObject("layouts"), surface);
         final JSONArray frames = layout != null ? TemplateJsonUtils.arrayOrEmpty(layout, "frames") : new JSONArray();
         final JSONArray frameIds = new JSONArray();
         for (int index = 0; index < frames.length(); index += 1) {
@@ -441,6 +441,14 @@ final class TemplateRuntime {
             }
         }
         return frameIds;
+    }
+
+    private static JSONObject layoutForSurface(final JSONObject layouts, final String surface) {
+        final JSONObject layout = layouts.optJSONObject(surface);
+        if (layout != null) {
+            return layout;
+        }
+        return "homeScreen".equals(surface) ? layouts.optJSONObject("lockScreen") : null;
     }
 
     private static int indexOfString(final JSONArray values, final String target) {

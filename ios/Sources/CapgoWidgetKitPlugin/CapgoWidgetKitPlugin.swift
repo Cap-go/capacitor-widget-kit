@@ -8,6 +8,7 @@ public class CapgoWidgetKitPlugin: CAPPlugin, CAPBridgedPlugin {
     public let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "areActivitiesSupported", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "startTemplateActivity", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "startTemplateWidget", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "updateTemplateActivity", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "endTemplateActivity", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "performTemplateAction", returnType: CAPPluginReturnPromise),
@@ -35,6 +36,14 @@ public class CapgoWidgetKitPlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     @objc func startTemplateActivity(_ call: CAPPluginCall) {
+        startTemplateRecord(call, startLiveActivity: call.getBool("startLiveActivity") ?? true)
+    }
+
+    @objc func startTemplateWidget(_ call: CAPPluginCall) {
+        startTemplateRecord(call, startLiveActivity: false)
+    }
+
+    private func startTemplateRecord(_ call: CAPPluginCall, startLiveActivity: Bool) {
         guard let definition = call.getObject("definition") else {
             call.reject(CapgoWidgetKitBridgeError.missingObject("definition").localizedDescription)
             return
@@ -52,7 +61,7 @@ public class CapgoWidgetKitPlugin: CAPPlugin, CAPBridgedPlugin {
                     definitionObject: definition,
                     stateObject: state,
                     openUrl: call.getString("openUrl"),
-                    startLiveActivity: call.getBool("startLiveActivity") ?? true
+                    startLiveActivity: startLiveActivity
                 )
                 call.resolve(payload)
             } catch {

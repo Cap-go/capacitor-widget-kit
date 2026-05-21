@@ -281,11 +281,11 @@ const renderPreview = () => {
     return;
   }
 
-  const resolvedLayout = resolveTemplateSurface(currentActivity, 'lockScreen');
+  const resolvedLayout = resolveTemplateSurface(currentActivity, 'homeScreen');
   if (!resolvedLayout) {
     preview.innerHTML = `
       <div class="preview-empty">
-        <p>The lock screen surface is missing from this activity.</p>
+        <p>The home screen surface is missing from this activity.</p>
       </div>
     `;
     updateActionState();
@@ -341,7 +341,7 @@ const checkSupport = async () => {
 
 const startTemplate = async () => {
   try {
-    const result = await CapgoWidgetKit.startTemplateActivity(createWorkoutTemplateActivity(sampleSession()));
+    const result = await CapgoWidgetKit.startTemplateWidget(createWorkoutTemplateActivity(sampleSession()));
     currentActivity = result.activity;
     currentEvents = [];
     setActivityBadge(currentActivity);

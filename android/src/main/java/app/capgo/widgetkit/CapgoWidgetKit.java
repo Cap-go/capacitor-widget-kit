@@ -185,6 +185,11 @@ public class CapgoWidgetKit {
         return message;
     }
 
+    public void reloadWidgets(final String kind) {
+        notifyStoreChanged(null, kind);
+        notifyWidgetBridgeChanged(null, null, kind);
+    }
+
     public JSONObject getPluginVersion() throws JSONException {
         String versionName = "android";
         try {
@@ -199,19 +204,34 @@ public class CapgoWidgetKit {
     }
 
     private void notifyStoreChanged(final String activityId) {
-        final Intent intent = new Intent(CapgoWidgetKitConstants.ACTION_TEMPLATE_STORE_CHANGED)
-            .setPackage(context.getPackageName())
-            .putExtra(CapgoWidgetKitConstants.EXTRA_ACTIVITY_ID, activityId);
+        notifyStoreChanged(activityId, null);
+    }
+
+    private void notifyStoreChanged(final String activityId, final String kind) {
+        final Intent intent = new Intent(CapgoWidgetKitConstants.ACTION_TEMPLATE_STORE_CHANGED).setPackage(context.getPackageName());
+        if (activityId != null) {
+            intent.putExtra(CapgoWidgetKitConstants.EXTRA_ACTIVITY_ID, activityId);
+        }
+        if (kind != null) {
+            intent.putExtra(CapgoWidgetKitConstants.EXTRA_WIDGET_KIND, kind);
+        }
         context.sendBroadcast(intent);
     }
 
     private void notifyWidgetBridgeChanged(final String widgetId, final String messageId) {
+        notifyWidgetBridgeChanged(widgetId, messageId, null);
+    }
+
+    private void notifyWidgetBridgeChanged(final String widgetId, final String messageId, final String kind) {
         final Intent intent = new Intent(CapgoWidgetKitConstants.ACTION_NATIVE_WIDGET_BRIDGE_CHANGED).setPackage(context.getPackageName());
         if (widgetId != null) {
             intent.putExtra(CapgoWidgetKitConstants.EXTRA_WIDGET_ID, widgetId);
         }
         if (messageId != null) {
             intent.putExtra(CapgoWidgetKitConstants.EXTRA_MESSAGE_ID, messageId);
+        }
+        if (kind != null) {
+            intent.putExtra(CapgoWidgetKitConstants.EXTRA_WIDGET_KIND, kind);
         }
         context.sendBroadcast(intent);
     }

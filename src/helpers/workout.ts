@@ -125,6 +125,34 @@ export function createWorkoutTemplateActivity(session: WorkoutTemplateSession): 
         },
       ],
       layouts: {
+        homeScreen: {
+          width: 160,
+          height: 160,
+          hotspots: [
+            {
+              id: 'complete-button',
+              actionId: 'complete-set',
+              x: 104,
+              y: 116,
+              width: 38,
+              height: 28,
+              label: 'Complete active set',
+              role: 'button',
+            },
+          ],
+          svg: `
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160">
+  <rect x="0" y="0" width="160" height="160" rx="24" fill="#05070b" />
+  <rect x="0" y="0" width="{{timers.rest.progressPct}}%" height="160" rx="24" fill="#00d69c" opacity="0.22" />
+  <text x="18" y="28" fill="#9fb0c8" font-size="12">{{state.session.title}}</text>
+  <text x="18" y="54" fill="#ffffff" font-size="18" font-weight="700">{{state.currentExercise.title}}</text>
+  <text x="18" y="75" fill="#7f8da3" font-size="12">{{state.currentExercise.subtitle}}</text>
+  <text x="18" y="113" fill="#ffffff" font-size="20" font-weight="700">{{state.currentSet.title}}</text>
+  <text x="18" y="136" fill="#00d69c" font-size="16" font-weight="700">{{timers.rest.remainingText}}</text>
+  <rect x="104" y="116" width="38" height="28" rx="10" fill="#00d69c" />
+  <text x="119" y="136" fill="#ffffff" font-size="18" font-weight="700">✓</text>
+</svg>`.trim(),
+        },
         lockScreen: {
           width: 100,
           height: 40,

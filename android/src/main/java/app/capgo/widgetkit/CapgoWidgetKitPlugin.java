@@ -32,6 +32,15 @@ public class CapgoWidgetKitPlugin extends Plugin {
 
     @PluginMethod
     public void startTemplateActivity(final PluginCall call) {
+        startTemplateRecord(call);
+    }
+
+    @PluginMethod
+    public void startTemplateWidget(final PluginCall call) {
+        startTemplateRecord(call);
+    }
+
+    private void startTemplateRecord(final PluginCall call) {
         final JSObject definition = call.getObject("definition");
         final JSObject state = call.getObject("state");
 
@@ -345,6 +354,12 @@ public class CapgoWidgetKitPlugin extends Plugin {
         } catch (JSONException exception) {
             call.reject(exception.getMessage(), exception);
         }
+    }
+
+    @PluginMethod
+    public void reloadWidgets(final PluginCall call) {
+        implementation.reloadWidgets(call.getString("kind"));
+        call.resolve();
     }
 
     @PluginMethod

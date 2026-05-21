@@ -2,6 +2,7 @@
 import Foundation
 
 public enum CapgoTemplateSurface: String, CaseIterable, Sendable {
+    case homeScreen
     case lockScreen
     case dynamicIslandExpanded
     case dynamicIslandCompactLeading
@@ -102,6 +103,19 @@ public final class CapgoTemplateWidgetBridge {
         try TemplateActivityStore.make(bundle: bundle).listEnvelopes()
     }
 
+    public func latestActivity(status: String? = "active", bundle: Bundle = .main) throws -> StoredTemplateActivityEnvelope? {
+        try listActivities(bundle: bundle)
+            .filter { envelope in
+                guard let status else {
+                    return true
+                }
+                return envelope.status == status
+            }
+            .max { left, right in
+                left.updatedAtMs < right.updatedAtMs
+            }
+    }
+
     public func resolveLayout(
         activityId: String,
         surface: CapgoTemplateSurface,
@@ -113,10 +127,9 @@ public final class CapgoTemplateWidgetBridge {
         }
 
         let record = try TemplateRuntimeRecord(envelope: envelope)
-        let layoutKey = surface.rawValue
         guard
             let layouts = record.definition["layouts"] as? [String: Any],
-            let layoutObject = layouts[layoutKey] as? [String: Any]
+            let layoutObject = layoutObject(for: surface, in: layouts)
         else {
             return nil
         }
@@ -141,6 +154,28 @@ public final class CapgoTemplateWidgetBridge {
             revision: record.revision,
             updatedAtMs: record.updatedAtMs
         )
+    }
+
+    public func resolveLatestLayout(
+        surface: CapgoTemplateSurface,
+        status: String? = "active",
+        bundle: Bundle = .main,
+        now: Date = Date()
+    ) throws -> CapgoResolvedTemplateLayout? {
+        guard let envelope = try latestActivity(status: status, bundle: bundle) else {
+            return nil
+        }
+        return try resolveLayout(activityId: envelope.activityId, surface: surface, bundle: bundle, now: now)
+    }
+
+    private func layoutObject(for surface: CapgoTemplateSurface, in layouts: [String: Any]) -> [String: Any]? {
+        if let layout = layouts[surface.rawValue] as? [String: Any] {
+            return layout
+        }
+        if surface == .homeScreen {
+            return layouts[CapgoTemplateSurface.lockScreen.rawValue] as? [String: Any]
+        }
+        return nil
     }
 
     private func parseHotspots(_ value: Any?) -> [CapgoTemplateResolvedHotspot] {

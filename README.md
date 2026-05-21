@@ -6,7 +6,7 @@
   <h2><a href="https://capgo.app/consulting/?ref=plugin_widget_kit"> Missing a feature? We’ll build the plugin for you 💪</a></h2>
 </div>
 
-Create WidgetKit, ActivityKit, and Android widget experiences from Capacitor without forcing one rendering model.
+Create Home Screen WidgetKit, ActivityKit, and Android widget experiences from Capacitor without forcing one rendering model.
 
 ## Demo
 
@@ -14,7 +14,7 @@ Create WidgetKit, ActivityKit, and Android widget experiences from Capacitor wit
 
 The plugin has two implementation paths:
 
-- SVG template activities: store SVG layouts, optional named frames, hotspots, declarative state patches, pause/resume timers, and interaction events. Use this when your widget can be driven by resolved SVG output.
+- SVG template widgets: store Home Screen, Lock Screen, Dynamic Island, and Android layouts with optional named frames, hotspots, declarative state patches, pause/resume timers, and interaction events. Use this when your widget can be driven by resolved SVG output.
 - Full-native widget sessions: store shared JSON state for native widget code and queue app-to-widget or widget-to-app messages. Use this when you want to render the widget fully in Swift/Kotlin/Java but still need Capacitor to start, stop, sync, or process async work.
 
 The included workout flow is only an example helper built on top of the generic SVG abstraction.
@@ -29,7 +29,8 @@ bunx cap sync android
 
 ## iOS Requirements
 
-- iOS 17+ is recommended for interactive Live Activity buttons.
+- Add a Widget Extension target for Home Screen / SpringBoard widgets.
+- iOS 17+ is recommended for interactive Home Screen widget and Live Activity buttons.
 - Add `NSSupportsLiveActivities` to the app `Info.plist` when using ActivityKit.
 - Add the same App Group to the app target and the widget extension target.
 - Set `CapgoWidgetKitAppGroup` in both `Info.plist` files to the shared App Group identifier.
@@ -47,7 +48,9 @@ The plugin ships the native pieces a widget extension or Android widget can use:
 
 - `CapgoTemplateActivityAttributes` for the iOS Live Activity bridge
 - `CapgoTemplateActionIntent` for interactive iOS template buttons
+- `CapgoTemplateWidgetTimelineProvider` and `CapgoTemplateHomeWidgetView` for real iOS Home Screen / SpringBoard widgets backed by WidgetKit timelines
 - `CapgoTemplateWidgetBridge` to load a stored SVG activity and resolve one surface into `svg + width/height + frameId + hotspots + metadata`
+- `CapgoTemplateSurfaceView`, `CapgoTemplateWidgetSurface`, and `CapgoTemplateLatestWidgetSurface` to place a rendered SVG view under native hotspot buttons in SwiftUI
 - `CapgoNativeWidgetBridge` to load full-native widget sessions and exchange async messages without using SVG templates
 - `CapgoTemplateActionReceiver` and `CapgoTemplateWidgetBridge` for Android template widgets
 
@@ -62,23 +65,53 @@ import CapgoWidgetKitPlugin
 @main
 struct ExampleWidgetBundle: WidgetBundle {
     var body: some Widget {
+        ExampleTemplateHomeWidget()
+
         if #available(iOS 16.2, *) {
             ExampleTemplateLiveActivityWidget()
         }
     }
 }
+
+struct ExampleTemplateHomeWidget: Widget {
+    private let kind = "ExampleTemplateHomeWidget"
+
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: kind, provider: CapgoTemplateWidgetTimelineProvider()) { entry in
+            CapgoTemplateHomeWidgetView(entry: entry) { layout in
+                MySvgRenderer(svg: layout.svg)
+            } placeholder: {
+                Text("No active widget")
+            }
+        }
+        .configurationDisplayName("Capgo Template")
+        .description("Home Screen widget rendered from the shared Capgo SVG template store.")
+        .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
+    }
+}
 ```
 
-See `example-app/widget-extension/ExampleWidgetBundle.swift` for a complete scaffold. The sample intentionally uses a placeholder card so you can plug in your own SVG renderer while keeping the same bridge and action intent wiring.
+Use the SwiftUI surface helpers when a custom WidgetKit view should be designed from JS but rendered by native widget code:
+
+```swift
+CapgoTemplateLatestWidgetSurface {
+    layout in
+    MySvgRenderer(svg: layout.svg)
+} placeholder: {
+    Text("No active widget")
+}
+```
+
+The helper positions `CapgoTemplateActionIntent` buttons over the resolved SVG hotspots on iOS 17+. See `example-app/widget-extension/ExampleWidgetBundle.swift` for a complete Home Screen widget and Live Activity scaffold.
 
 ## SVG Template Usage
 
-This mode is for widgets that can render resolved SVG. Hotspot actions can switch frames, mutate state, pause/play timers, and emit events for the app to process later.
+This mode is for Home Screen, Lock Screen, Dynamic Island, and Android widgets that can render resolved SVG. Hotspot actions can switch frames, mutate state, pause/play timers, and emit events for the app to process later.
 
 ```ts
 import { CapgoWidgetKit } from '@capgo/capacitor-widget-kit';
 
-const { activity } = await CapgoWidgetKit.startTemplateActivity({
+const { activity } = await CapgoWidgetKit.startTemplateWidget({
   activityId: 'session-1',
   openUrl: 'widgetkitdemo://session/session-1',
   state: {
@@ -93,7 +126,7 @@ const { activity } = await CapgoWidgetKit.startTemplateActivity({
       {
         id: 'next-frame',
         eventName: 'widget.frame.changed',
-        frameMutations: [{ op: 'next', path: 'frame', surface: 'lockScreen' }],
+        frameMutations: [{ op: 'next', path: 'frame', surface: 'homeScreen' }],
       },
       {
         id: 'toggle-rest',
@@ -102,7 +135,7 @@ const { activity } = await CapgoWidgetKit.startTemplateActivity({
       },
     ],
     layouts: {
-      lockScreen: {
+      homeScreen: {
         width: 100,
         height: 40,
         frameIdPath: 'state.frame',
@@ -173,12 +206,12 @@ await CapgoWidgetKit.stopWidgetSession({ widgetId: session.widgetId });
 
 The `example-app/` folder is a lightweight Vite demo for the generic template flow. It runs in the browser using the preview store and demonstrates:
 
-- starting one SVG template activity
-- resolving the lock-screen surface
+- starting one SVG template widget for the Home Screen surface
+- resolving the Home Screen surface
 - running an action from the app and from a hotspot overlay
-- reading the stored activity back
+- reading the stored widget template back
 - reading and acknowledging the event log
-- ending the activity
+- ending the stored template
 
 The workout helper is only used there as an example template factory.
 
@@ -188,6 +221,7 @@ The workout helper is only used there as an example template factory.
 
 * [`areActivitiesSupported()`](#areactivitiessupported)
 * [`startTemplateActivity(...)`](#starttemplateactivity)
+* [`startTemplateWidget(...)`](#starttemplatewidget)
 * [`updateTemplateActivity(...)`](#updatetemplateactivity)
 * [`endTemplateActivity(...)`](#endtemplateactivity)
 * [`performTemplateAction(...)`](#performtemplateaction)
@@ -204,6 +238,7 @@ The workout helper is only used there as an example template factory.
 * [`listWidgetMessages(...)`](#listwidgetmessages)
 * [`acknowledgeWidgetMessages(...)`](#acknowledgewidgetmessages)
 * [`completeWidgetMessage(...)`](#completewidgetmessage)
+* [`reloadWidgets(...)`](#reloadwidgets)
 * [`getPluginVersion()`](#getpluginversion)
 * [Interfaces](#interfaces)
 * [Type Aliases](#type-aliases)
@@ -215,14 +250,15 @@ The workout helper is only used there as an example template factory.
 
 Capacitor bridge for an iOS-first WidgetKit / Live Activities plugin.
 
-The core abstraction is a generic SVG template activity:
+The core abstraction is a generic SVG template record:
 - raw SVG templates with binding placeholders
 - declarative action patches
 - timer bindings exposed to the template scope
 - event logging so the host app can process button results later
 
 The plugin owns shared persistence, declarative action execution, and event retrieval.
-The host widget extension keeps full freedom over actual WidgetKit rendering.
+The host widget extension keeps full freedom over actual WidgetKit rendering, including
+Home Screen / SpringBoard widgets backed by WidgetKit timelines.
 
 Full-native widgets can use widget sessions for synchronous shared state and widget messages
 for asynchronous app/widget jobs without adopting the SVG template renderer.
@@ -251,6 +287,23 @@ Persist a generic SVG template activity and start the matching native Live Activ
 | Param         | Type                                                                                  |
 | ------------- | ------------------------------------------------------------------------------------- |
 | **`options`** | <code><a href="#starttemplateactivityoptions">StartTemplateActivityOptions</a></code> |
+
+**Returns:** <code>Promise&lt;<a href="#starttemplateactivityresult">StartTemplateActivityResult</a>&gt;</code>
+
+--------------------
+
+
+### startTemplateWidget(...)
+
+```typescript
+startTemplateWidget(options: StartTemplateWidgetOptions) => Promise<StartTemplateActivityResult>
+```
+
+Persist a generic SVG template for Home Screen / SpringBoard widgets without starting a Live Activity.
+
+| Param         | Type                                                                              |
+| ------------- | --------------------------------------------------------------------------------- |
+| **`options`** | <code><a href="#starttemplatewidgetoptions">StartTemplateWidgetOptions</a></code> |
 
 **Returns:** <code>Promise&lt;<a href="#starttemplateactivityresult">StartTemplateActivityResult</a>&gt;</code>
 
@@ -513,6 +566,21 @@ Complete or fail an async widget bridge message.
 --------------------
 
 
+### reloadWidgets(...)
+
+```typescript
+reloadWidgets(options?: ReloadWidgetsOptions | undefined) => Promise<void>
+```
+
+Ask native widgets to reload after external app state changes.
+
+| Param         | Type                                                                  |
+| ------------- | --------------------------------------------------------------------- |
+| **`options`** | <code><a href="#reloadwidgetsoptions">ReloadWidgetsOptions</a></code> |
+
+--------------------
+
+
 ### getPluginVersion()
 
 ```typescript
@@ -582,13 +650,14 @@ Generic SVG template definition stored by the plugin.
 
 Bundle of optional WidgetKit surface layouts.
 
-| Prop                               | Type                                                            | Description                                      |
-| ---------------------------------- | --------------------------------------------------------------- | ------------------------------------------------ |
-| **`lockScreen`**                   | <code><a href="#svgtemplatelayout">SvgTemplateLayout</a></code> | Primary lock-screen / banner layout.             |
-| **`dynamicIslandExpanded`**        | <code><a href="#svgtemplatelayout">SvgTemplateLayout</a></code> | Optional expanded Dynamic Island layout.         |
-| **`dynamicIslandCompactLeading`**  | <code><a href="#svgtemplatelayout">SvgTemplateLayout</a></code> | Optional compact leading Dynamic Island layout.  |
-| **`dynamicIslandCompactTrailing`** | <code><a href="#svgtemplatelayout">SvgTemplateLayout</a></code> | Optional compact trailing Dynamic Island layout. |
-| **`dynamicIslandMinimal`**         | <code><a href="#svgtemplatelayout">SvgTemplateLayout</a></code> | Optional minimal Dynamic Island layout.          |
+| Prop                               | Type                                                            | Description                                                                                                               |
+| ---------------------------------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| **`homeScreen`**                   | <code><a href="#svgtemplatelayout">SvgTemplateLayout</a></code> | Optional Home Screen / SpringBoard widget layout. When omitted, native Home Screen widgets may fall back to `lockScreen`. |
+| **`lockScreen`**                   | <code><a href="#svgtemplatelayout">SvgTemplateLayout</a></code> | Optional lock-screen / Live Activity banner layout.                                                                       |
+| **`dynamicIslandExpanded`**        | <code><a href="#svgtemplatelayout">SvgTemplateLayout</a></code> | Optional expanded Dynamic Island layout.                                                                                  |
+| **`dynamicIslandCompactLeading`**  | <code><a href="#svgtemplatelayout">SvgTemplateLayout</a></code> | Optional compact leading Dynamic Island layout.                                                                           |
+| **`dynamicIslandCompactTrailing`** | <code><a href="#svgtemplatelayout">SvgTemplateLayout</a></code> | Optional compact trailing Dynamic Island layout.                                                                          |
+| **`dynamicIslandMinimal`**         | <code><a href="#svgtemplatelayout">SvgTemplateLayout</a></code> | Optional minimal Dynamic Island layout.                                                                                   |
 
 
 #### SvgTemplateLayoutWithSvg
@@ -739,6 +808,22 @@ Persisted timer runtime state.
 #### StartTemplateActivityOptions
 
 Options for starting a generic SVG template activity.
+
+| Prop                    | Type                                                                    | Description                                                                                                                                                                       |
+| ----------------------- | ----------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`activityId`**        | <code>string</code>                                                     | Optional explicit activity identifier. When omitted, the native runtime creates one.                                                                                              |
+| **`definition`**        | <code><a href="#svgtemplatedefinition">SvgTemplateDefinition</a></code> | Generic SVG template definition.                                                                                                                                                  |
+| **`state`**             | <code><a href="#svgtemplatestate">SvgTemplateState</a></code>           | Initial JSON state exposed under `state.*`.                                                                                                                                       |
+| **`openUrl`**           | <code>string</code>                                                     | Optional deep link used when the widget body is tapped.                                                                                                                           |
+| **`startLiveActivity`** | <code>boolean</code>                                                    | Whether iOS should also start a native Live Activity. Defaults to `true`. Set to `false` when the same SVG template should only back a home-screen or lock-screen widget surface. |
+
+
+#### StartTemplateWidgetOptions
+
+Options for starting or replacing a Home Screen / SpringBoard widget template.
+
+This persists the same SVG template record as `startTemplateActivity`, but native iOS
+implementations do not start an ActivityKit Live Activity.
 
 | Prop             | Type                                                                    | Description                                                                          |
 | ---------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
@@ -1046,6 +1131,15 @@ Options for completing an async widget bridge message.
 | **`error`**     | <code>string</code>                               | Optional error string. When set, the message status becomes `failed`. |
 
 
+#### ReloadWidgetsOptions
+
+Options for forcing installed native widgets to reload their timeline.
+
+| Prop       | Type                | Description                                                                                    |
+| ---------- | ------------------- | ---------------------------------------------------------------------------------------------- |
+| **`kind`** | <code>string</code> | Optional native widget kind to reload on iOS. When omitted, every widget timeline is reloaded. |
+
+
 #### PluginVersionResult
 
 Result payload for plugin version queries.
@@ -1090,7 +1184,7 @@ JSON-safe array used as activity state.
 
 Named WidgetKit surface for one SVG layout variant.
 
-<code>'lockScreen' | 'dynamicIslandExpanded' | 'dynamicIslandCompactLeading' | 'dynamicIslandCompactTrailing' | 'dynamicIslandMinimal'</code>
+<code>'homeScreen' | 'lockScreen' | 'dynamicIslandExpanded' | 'dynamicIslandCompactLeading' | 'dynamicIslandCompactTrailing' | 'dynamicIslandMinimal'</code>
 
 
 #### SvgTemplateState

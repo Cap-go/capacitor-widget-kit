@@ -19,9 +19,11 @@ import type {
   PerformTemplateActionOptions,
   PerformTemplateActionResult,
   PluginVersionResult,
+  ReloadWidgetsOptions,
   SendWidgetMessageOptions,
   StartTemplateActivityOptions,
   StartTemplateActivityResult,
+  StartTemplateWidgetOptions,
   StartWidgetSessionOptions,
   StartWidgetSessionResult,
   StopWidgetSessionOptions,
@@ -136,7 +138,7 @@ export class CapgoWidgetKitWeb extends WebPlugin implements CapgoWidgetKitPlugin
     return {
       supported: false,
       reason:
-        'WidgetKit preview mode only. The generic template runtime works in the browser, but native ActivityKit support is available on iOS 16.2+.',
+        'WidgetKit preview mode only. The generic template runtime works in the browser, but Home Screen widgets and ActivityKit require native iOS or Android runtimes.',
     };
   }
 
@@ -149,6 +151,10 @@ export class CapgoWidgetKitWeb extends WebPlugin implements CapgoWidgetKitPlugin
     store.activities[activity.activityId] = activity;
     saveStore(store);
     return { activity: cloneJson(activity) };
+  }
+
+  async startTemplateWidget(options: StartTemplateWidgetOptions): Promise<StartTemplateActivityResult> {
+    return this.startTemplateActivity(options);
   }
 
   async updateTemplateActivity(options: UpdateTemplateActivityOptions): Promise<TemplateActivityResult> {
@@ -411,6 +417,11 @@ export class CapgoWidgetKitWeb extends WebPlugin implements CapgoWidgetKitPlugin
     store.messages[nextMessage.messageId] = nextMessage;
     saveStore(store);
     return { message: cloneJson(nextMessage) };
+  }
+
+  async reloadWidgets(options?: ReloadWidgetsOptions): Promise<void> {
+    void options;
+    return;
   }
 
   async getPluginVersion(): Promise<PluginVersionResult> {

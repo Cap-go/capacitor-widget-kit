@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(WidgetKit)
+import WidgetKit
+#endif
 
 enum CapgoWidgetKitBridgeError: LocalizedError {
     case missingObject(String)
@@ -30,13 +33,15 @@ public final class CapgoWidgetKit {
         activityId: String?,
         definitionObject: [String: Any],
         stateObject: [String: Any],
-        openUrl: String?
+        openUrl: String?,
+        startLiveActivity: Bool
     ) async throws -> [String: Any] {
         let envelope = try await TemplateLiveActivityManager.shared.start(
             activityId: activityId,
             definitionObject: definitionObject,
             stateObject: stateObject,
-            openUrl: openUrl
+            openUrl: openUrl,
+            startLiveActivity: startLiveActivity
         )
         return ["activity": try TemplateRuntime.serializeActivity(envelope)]
     }
@@ -120,6 +125,7 @@ public final class CapgoWidgetKit {
             stateObject: stateObject ?? [:],
             metadataObject: metadataObject
         )
+        reloadWidgets(kind: nil)
         return ["session": try CapgoNativeWidgetBridge.serializeSession(session)]
     }
 
@@ -138,11 +144,13 @@ public final class CapgoWidgetKit {
         guard let session else {
             return ["session": NSNull()]
         }
+        reloadWidgets(kind: nil)
         return ["session": try CapgoNativeWidgetBridge.serializeSession(session)]
     }
 
     public func stopWidgetSession(widgetId: String, stateObject: [String: Any]?) throws {
         try CapgoNativeWidgetBridge().stopSession(widgetId: widgetId, stateObject: stateObject)
+        reloadWidgets(kind: nil)
     }
 
     public func getWidgetSession(widgetId: String) throws -> [String: Any] {
@@ -172,6 +180,7 @@ public final class CapgoWidgetKit {
             payloadObject: payloadObject,
             expectsResponse: expectsResponse
         )
+        reloadWidgets(kind: nil)
         return ["message": try CapgoNativeWidgetBridge.serializeMessage(message)]
     }
 
@@ -196,6 +205,7 @@ public final class CapgoWidgetKit {
             widgetId: widgetId,
             direction: direction.flatMap(CapgoWidgetMessageDirection.init(rawValue:))
         )
+        reloadWidgets(kind: nil)
     }
 
     public func completeWidgetMessage(messageId: String, responseObject: [String: Any]?, error: String?) throws -> [String: Any] {
@@ -207,7 +217,22 @@ public final class CapgoWidgetKit {
         guard let message else {
             return ["message": NSNull()]
         }
+        reloadWidgets(kind: nil)
         return ["message": try CapgoNativeWidgetBridge.serializeMessage(message)]
+    }
+
+    public func reloadWidgets(kind: String?) {
+        #if canImport(WidgetKit)
+        if #available(iOS 14.0, *) {
+            if let kind, !kind.isEmpty {
+                WidgetCenter.shared.reloadTimelines(ofKind: kind)
+            } else {
+                WidgetCenter.shared.reloadAllTimelines()
+            }
+        }
+        #else
+        _ = kind
+        #endif
     }
 
     public func getPluginVersion() -> [String: Any] {

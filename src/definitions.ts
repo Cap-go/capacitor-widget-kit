@@ -222,9 +222,16 @@ export type SvgTemplateLayout = SvgTemplateLayoutWithSvg | SvgTemplateLayoutWith
  */
 export interface SvgTemplateLayouts {
   /**
-   * Primary lock-screen / banner layout.
+   * Optional Home Screen / SpringBoard widget layout.
+   *
+   * When omitted, native Home Screen widgets may fall back to `lockScreen`.
    */
-  lockScreen: SvgTemplateLayout;
+  homeScreen?: SvgTemplateLayout;
+
+  /**
+   * Optional lock-screen / Live Activity banner layout.
+   */
+  lockScreen?: SvgTemplateLayout;
 
   /**
    * Optional expanded Dynamic Island layout.
@@ -251,6 +258,7 @@ export interface SvgTemplateLayouts {
  * Named WidgetKit surface for one SVG layout variant.
  */
 export type SvgTemplateSurface =
+  | 'homeScreen'
   | 'lockScreen'
   | 'dynamicIslandExpanded'
   | 'dynamicIslandCompactLeading'
@@ -684,6 +692,42 @@ export interface SvgTemplateActionEvent {
  * Options for starting a generic SVG template activity.
  */
 export interface StartTemplateActivityOptions {
+  /**
+   * Optional explicit activity identifier. When omitted, the native runtime creates one.
+   */
+  activityId?: string;
+
+  /**
+   * Generic SVG template definition.
+   */
+  definition: SvgTemplateDefinition;
+
+  /**
+   * Initial JSON state exposed under `state.*`.
+   */
+  state: SvgTemplateState;
+
+  /**
+   * Optional deep link used when the widget body is tapped.
+   */
+  openUrl?: string;
+
+  /**
+   * Whether iOS should also start a native Live Activity.
+   *
+   * Defaults to `true`. Set to `false` when the same SVG template should only back
+   * a home-screen or lock-screen widget surface.
+   */
+  startLiveActivity?: boolean;
+}
+
+/**
+ * Options for starting or replacing a Home Screen / SpringBoard widget template.
+ *
+ * This persists the same SVG template record as `startTemplateActivity`, but native iOS
+ * implementations do not start an ActivityKit Live Activity.
+ */
+export interface StartTemplateWidgetOptions {
   /**
    * Optional explicit activity identifier. When omitted, the native runtime creates one.
    */
@@ -1218,16 +1262,27 @@ export interface CompleteWidgetMessageOptions {
 }
 
 /**
+ * Options for forcing installed native widgets to reload their timeline.
+ */
+export interface ReloadWidgetsOptions {
+  /**
+   * Optional native widget kind to reload on iOS. When omitted, every widget timeline is reloaded.
+   */
+  kind?: string;
+}
+
+/**
  * Capacitor bridge for an iOS-first WidgetKit / Live Activities plugin.
  *
- * The core abstraction is a generic SVG template activity:
+ * The core abstraction is a generic SVG template record:
  * - raw SVG templates with binding placeholders
  * - declarative action patches
  * - timer bindings exposed to the template scope
  * - event logging so the host app can process button results later
  *
  * The plugin owns shared persistence, declarative action execution, and event retrieval.
- * The host widget extension keeps full freedom over actual WidgetKit rendering.
+ * The host widget extension keeps full freedom over actual WidgetKit rendering, including
+ * Home Screen / SpringBoard widgets backed by WidgetKit timelines.
  *
  * Full-native widgets can use widget sessions for synchronous shared state and widget messages
  * for asynchronous app/widget jobs without adopting the SVG template renderer.
@@ -1242,6 +1297,11 @@ export interface CapgoWidgetKitPlugin {
    * Persist a generic SVG template activity and start the matching native Live Activity bridge.
    */
   startTemplateActivity(options: StartTemplateActivityOptions): Promise<StartTemplateActivityResult>;
+
+  /**
+   * Persist a generic SVG template for Home Screen / SpringBoard widgets without starting a Live Activity.
+   */
+  startTemplateWidget(options: StartTemplateWidgetOptions): Promise<StartTemplateActivityResult>;
 
   /**
    * Replace part or all of the stored activity definition/state.
@@ -1322,6 +1382,11 @@ export interface CapgoWidgetKitPlugin {
    * Complete or fail an async widget bridge message.
    */
   completeWidgetMessage(options: CompleteWidgetMessageOptions): Promise<WidgetMessageResult>;
+
+  /**
+   * Ask native widgets to reload after external app state changes.
+   */
+  reloadWidgets(options?: ReloadWidgetsOptions): Promise<void>;
 
   /**
    * Return the platform implementation version marker.

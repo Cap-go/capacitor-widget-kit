@@ -543,7 +543,7 @@ function frameIdsForMutation(activity: SvgTemplateActivityRecord, mutation: SvgT
     return [];
   }
 
-  return activity.definition.layouts[surface]?.frames?.map((frame) => frame.id) ?? [];
+  return getTemplateLayout(activity, surface)?.frames?.map((frame) => frame.id) ?? [];
 }
 
 function normalizeFrameMutationId(frameId: string | undefined, frameIds: string[]): string | undefined {
@@ -745,7 +745,10 @@ export function getTemplateLayout(
   activity: SvgTemplateActivityRecord,
   surface: SvgTemplateSurface,
 ): SvgTemplateLayout | null {
-  return activity.definition.layouts[surface] ?? null;
+  return (
+    activity.definition.layouts[surface] ??
+    (surface === 'homeScreen' ? (activity.definition.layouts.lockScreen ?? null) : null)
+  );
 }
 
 export function resolveTemplateSurface(

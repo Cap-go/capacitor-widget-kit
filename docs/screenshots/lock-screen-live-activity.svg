@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="560" height="360" viewBox="0 0 560 360" role="img" aria-labelledby="title desc">
+  <title id="title">iOS Lock Screen Live Activity screenshot</title>
+  <desc id="desc">An iPhone Lock Screen with a Capgo Live Activity banner rendered from an SVG template.</desc>
+  <defs>
+    <linearGradient id="lockWallpaper" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#152033" />
+      <stop offset="0.52" stop-color="#465f6c" />
+      <stop offset="1" stop-color="#d7d2b2" />
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#0f172a" flood-opacity="0.24" />
+    </filter>
+  </defs>
+  <rect width="560" height="360" rx="28" fill="#eef2f7" />
+  <rect x="146" y="18" width="268" height="324" rx="38" fill="#111827" filter="url(#shadow)" />
+  <rect x="156" y="28" width="248" height="304" rx="31" fill="url(#lockWallpaper)" />
+  <rect x="244" y="38" width="72" height="18" rx="9" fill="#0f172a" opacity="0.9" />
+  <text x="280" y="97" text-anchor="middle" fill="#ffffff" font-family="Arial, sans-serif" font-size="45" font-weight="700">9:41</text>
+  <text x="280" y="121" text-anchor="middle" fill="#ffffff" font-family="Arial, sans-serif" font-size="14" opacity="0.85">Thursday, May 21</text>
+  <g opacity="0.56">
+    <rect x="189" y="151" width="182" height="26" rx="13" fill="#ffffff" opacity="0.28" />
+    <rect x="189" y="187" width="182" height="26" rx="13" fill="#ffffff" opacity="0.22" />
+  </g>
+  <g filter="url(#shadow)">
+    <rect x="178" y="237" width="204" height="66" rx="18" fill="#05070b" />
+    <rect x="178" y="237" width="86" height="66" rx="18" fill="#00d69c" opacity="0.24" />
+    <text x="194" y="258" fill="#9fb0c8" font-family="Arial, sans-serif" font-size="11">Chest Day</text>
+    <text x="194" y="276" fill="#ffffff" font-family="Arial, sans-serif" font-size="16" font-weight="700">Bench Press</text>
+    <text x="194" y="293" fill="#7f8da3" font-family="Arial, sans-serif" font-size="10">Set 3 of 4</text>
+    <text x="306" y="264" fill="#00d69c" font-family="Arial, sans-serif" font-size="17" font-weight="700">01:12</text>
+    <rect x="310" y="276" width="42" height="20" rx="8" fill="#00d69c" />
+    <text x="323" y="290" fill="#ffffff" font-family="Arial, sans-serif" font-size="10" font-weight="700">OK</text>
+  </g>
+  <rect x="232" y="317" width="96" height="5" rx="3" fill="#ffffff" opacity="0.72" />
+  <text x="280" y="348" text-anchor="middle" fill="#111827" font-family="Arial, sans-serif" font-size="17" font-weight="700">Lock Screen / Live Activity</text>
+</svg>

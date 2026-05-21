@@ -8,6 +8,10 @@
 
 Create WidgetKit, ActivityKit, and Android widget experiences from Capacitor without forcing one rendering model.
 
+## Demo
+
+<img src="./docs/demo.webp" alt="Demo of capacitor-widget-kit in action" width="300" />
+
 The plugin has two implementation paths:
 
 - SVG template activities: store SVG layouts, optional named frames, hotspots, declarative state patches, pause/resume timers, and interaction events. Use this when your widget can be driven by resolved SVG output.

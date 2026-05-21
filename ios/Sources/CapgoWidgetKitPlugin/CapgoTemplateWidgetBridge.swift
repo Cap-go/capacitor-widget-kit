@@ -103,12 +103,16 @@ public final class CapgoTemplateWidgetBridge {
     }
 
     public func latestActivity(status: String? = "active", bundle: Bundle = .main) throws -> StoredTemplateActivityEnvelope? {
-        try listActivities(bundle: bundle).first { envelope in
-            guard let status else {
-                return true
+        try listActivities(bundle: bundle)
+            .filter { envelope in
+                guard let status else {
+                    return true
+                }
+                return envelope.status == status
             }
-            return envelope.status == status
-        }
+            .max { left, right in
+                left.updatedAtMs < right.updatedAtMs
+            }
     }
 
     public func resolveLayout(

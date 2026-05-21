@@ -19,6 +19,7 @@ import type {
   PerformTemplateActionOptions,
   PerformTemplateActionResult,
   PluginVersionResult,
+  ReloadWidgetsOptions,
   SendWidgetMessageOptions,
   StartTemplateActivityOptions,
   StartTemplateActivityResult,
@@ -413,7 +414,8 @@ export class CapgoWidgetKitWeb extends WebPlugin implements CapgoWidgetKitPlugin
     return { message: cloneJson(nextMessage) };
   }
 
-  async reloadWidgets(): Promise<void> {
+  async reloadWidgets(options?: ReloadWidgetsOptions): Promise<void> {
+    void options;
     return;
   }
 

@@ -10,6 +10,7 @@ public final class CapgoWidgetKitConstants {
     public static final String EXTRA_ACTION_ID = "actionId";
     public static final String EXTRA_SOURCE_ID = "sourceId";
     public static final String EXTRA_PAYLOAD_JSON = "payloadJson";
+    public static final String EXTRA_WIDGET_KIND = "widgetKind";
     public static final String EXTRA_WIDGET_ID = "widgetId";
     public static final String EXTRA_MESSAGE_ID = "messageId";
     public static final String ACTIVITY_IDS_KEY = "activityIds";

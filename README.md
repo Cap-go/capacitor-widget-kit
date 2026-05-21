@@ -136,8 +136,6 @@ const { activity } = await CapgoWidgetKit.startTemplateActivity({
   },
 });
 
-await CapgoWidgetKit.reloadWidgets();
-
 await CapgoWidgetKit.performTemplateAction({
   activityId: activity.activityId,
   actionId: 'toggle-rest',

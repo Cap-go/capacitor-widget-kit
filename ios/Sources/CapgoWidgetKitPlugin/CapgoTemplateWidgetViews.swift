@@ -1,5 +1,6 @@
 #if canImport(SwiftUI)
 import Foundation
+import OSLog
 import SwiftUI
 #if canImport(AppIntents)
 import AppIntents
@@ -196,12 +197,17 @@ public struct CapgoTemplateWidgetSurface<SVGContent: View, Placeholder: View>: V
     }
 
     private var resolvedLayout: CapgoResolvedTemplateLayout? {
-        try? CapgoTemplateWidgetBridge().resolveLayout(
-            activityId: activityId,
-            surface: surface,
-            bundle: bundle,
-            now: now()
-        )
+        do {
+            return try CapgoTemplateWidgetBridge().resolveLayout(
+                activityId: activityId,
+                surface: surface,
+                bundle: bundle,
+                now: now()
+            )
+        } catch {
+            logTemplateWidgetResolutionFailure(error, surface: surface, bundle: bundle, activityId: activityId)
+            return nil
+        }
     }
 }
 
@@ -243,12 +249,40 @@ public struct CapgoTemplateLatestWidgetSurface<SVGContent: View, Placeholder: Vi
     }
 
     private var resolvedLayout: CapgoResolvedTemplateLayout? {
-        try? CapgoTemplateWidgetBridge().resolveLatestLayout(
-            surface: surface,
-            status: status,
-            bundle: bundle,
-            now: now()
-        )
+        do {
+            return try CapgoTemplateWidgetBridge().resolveLatestLayout(
+                surface: surface,
+                status: status,
+                bundle: bundle,
+                now: now()
+            )
+        } catch {
+            logTemplateWidgetResolutionFailure(error, surface: surface, bundle: bundle, status: status)
+            return nil
+        }
     }
+}
+
+@available(iOS 16.0, *)
+private enum CapgoTemplateWidgetSurfaceLog {
+    static let logger = Logger(subsystem: "app.capgo.widgetkit", category: "TemplateWidgetSurface")
+}
+
+@available(iOS 16.0, *)
+private func logTemplateWidgetResolutionFailure(
+    _ error: Error,
+    surface: CapgoTemplateSurface,
+    bundle: Bundle,
+    activityId: String? = nil,
+    status: String? = nil
+) {
+    let activityContext = activityId ?? "latest"
+    let statusContext = status ?? "any"
+    let bundleIdentifier = bundle.bundleIdentifier ?? "unknown"
+    let context =
+        "activityId=\(activityContext) status=\(statusContext) surface=\(surface.rawValue) bundle=\(bundleIdentifier)"
+    CapgoTemplateWidgetSurfaceLog.logger.error(
+        "Failed to resolve template widget surface \(context, privacy: .public): \(error.localizedDescription, privacy: .public)"
+    )
 }
 #endif

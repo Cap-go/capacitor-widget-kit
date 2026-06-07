@@ -7,6 +7,9 @@ const config: CapacitorConfig = {
   appName: 'Widget Kit Example',
   webDir: 'dist',
   plugins: {
+    SplashScreen: {
+      launchAutoHide: false,
+    },
     CapacitorUpdater: {
       appId: 'app.capgo.widgetkit.exampleapp',
       autoUpdate: true,

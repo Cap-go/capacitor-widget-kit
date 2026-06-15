@@ -1,3 +1,5 @@
+import { CapacitorUpdater } from '@capgo/capacitor-updater';
+import { Capacitor } from '@capacitor/core';
 import './style.css';
 import {
   CapgoWidgetKit,
@@ -341,7 +343,9 @@ const checkSupport = async () => {
 
 const startTemplate = async () => {
   try {
-    const result = await CapgoWidgetKit.startTemplateWidget(createWorkoutTemplateActivity(sampleSession()));
+    const result = await CapgoWidgetKit.startTemplateWidget(
+      createWorkoutTemplateActivity(sampleSession()),
+    );
     currentActivity = result.activity;
     currentEvents = [];
     setActivityBadge(currentActivity);
@@ -480,3 +484,9 @@ window.setInterval(() => {
 renderPreview();
 renderEvents();
 checkSupport();
+
+if (Capacitor.isNativePlatform()) {
+  CapacitorUpdater.notifyAppReady().catch((error) => {
+    console.error('Capgo notifyAppReady failed', error);
+  });
+}

@@ -1,7 +1,7 @@
 import ActivityKit
 import SwiftUI
 import WidgetKit
-import CapgoWidgetKitPlugin
+import CapgoWidgetKitShared
 
 @main
 struct ExampleWidgetBundle: WidgetBundle {
@@ -80,21 +80,40 @@ private struct ExampleTemplateSurfaceCard: View {
     var body: some View {
         ZStack(alignment: .topLeading) {
             RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .fill(Color.black)
+                .fill(
+                    LinearGradient(
+                        colors: [Color(red: 0.05, green: 0.12, blue: 0.08), Color.black],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
 
             VStack(alignment: .leading, spacing: 10) {
-                Text(layout?.templateId ?? "No template activity")
-                    .font(.headline)
+                HStack {
+                    Text("LIVE")
+                        .font(.caption2.weight(.bold))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Capsule().fill(Color.green.opacity(0.28)))
+                        .foregroundStyle(.green)
+
+                    Spacer()
+
+                    if let layout {
+                        Text("rev \(layout.revision)")
+                            .font(.caption2.monospacedDigit())
+                            .foregroundStyle(.white.opacity(0.55))
+                    }
+                }
+
+                Text(displayTitle)
+                    .font(.title3.weight(.bold))
                     .foregroundStyle(.white)
+                    .lineLimit(2)
 
-                Text("Plug your SVG renderer here")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(Color.green.opacity(0.9))
-
-                Text(previewText)
-                    .font(.caption2.monospaced())
-                    .foregroundStyle(.white.opacity(0.72))
-                    .lineLimit(4)
+                Text(displaySubtitle)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Color.green.opacity(0.92))
 
                 Spacer(minLength: 0)
 
@@ -104,16 +123,39 @@ private struct ExampleTemplateSurfaceCard: View {
         }
     }
 
-    private var previewText: String {
+    private var displayTitle: String {
         guard let layout else {
-            return "The widget extension can resolve SVG, hotspots, and deep links from the shared store."
+            return "Capgo Template Widget"
         }
 
-        return layout.svg
-            .replacingOccurrences(of: "\n", with: " ")
-            .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
-            .prefix(160)
-            .description
+        if let title = extractSvgText(matching: "Chest Day|Bench Press|Workout") {
+            return title
+        }
+
+        return layout.templateId.replacingOccurrences(of: "-", with: " ").capitalized
+    }
+
+    private var displaySubtitle: String {
+        guard let layout else {
+            return "Start a template activity from the demo app"
+        }
+
+        if let timer = extractSvgText(matching: "\\d+:\\d{2}") {
+            return "Rest timer · \(timer)"
+        }
+
+        return layout.status.capitalized
+    }
+
+    private func extractSvgText(matching pattern: String) -> String? {
+        guard let layout else { return nil }
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return nil }
+        let range = NSRange(layout.svg.startIndex..<layout.svg.endIndex, in: layout.svg)
+        guard let match = regex.firstMatch(in: layout.svg, range: range),
+              let swiftRange = Range(match.range, in: layout.svg) else {
+            return nil
+        }
+        return String(layout.svg[swiftRange])
     }
 }
 
@@ -134,13 +176,21 @@ private struct ExampleTemplateBadge: View {
 
     var body: some View {
         if let layout {
-            Text("\(layout.revision)")
-                .font(.caption2.monospacedDigit())
+            Text(shortLabel(for: layout))
+                .font(.caption2.weight(.bold).monospacedDigit())
                 .foregroundStyle(.green)
+                .padding(.horizontal, 6)
         } else {
-            Image(systemName: "square.dashed")
+            Image(systemName: "figure.strengthtraining.traditional")
                 .foregroundStyle(.green)
         }
+    }
+
+    private func shortLabel(for layout: CapgoResolvedTemplateLayout) -> String {
+        if let hotspot = layout.hotspots.first?.label, !hotspot.isEmpty {
+            return String(hotspot.prefix(3)).uppercased()
+        }
+        return "\(layout.revision)"
     }
 }
 

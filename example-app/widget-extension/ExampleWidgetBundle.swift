@@ -1,7 +1,7 @@
 import ActivityKit
 import SwiftUI
 import WidgetKit
-import CapgoWidgetKitPlugin
+import CapgoWidgetKitShared
 
 @main
 struct ExampleWidgetBundle: WidgetBundle {

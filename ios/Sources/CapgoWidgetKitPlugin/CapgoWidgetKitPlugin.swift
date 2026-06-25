@@ -1,4 +1,5 @@
 import Capacitor
+import CapgoWidgetKitShared
 import Foundation
 
 @objc(CapgoWidgetKitPlugin)

@@ -10,7 +10,6 @@ on:
 
 jobs:
   guard_swiftpm_version:
-    # Keep this job capped at 10 minutes; never raise it unless explicitly asked.
     timeout-minutes: 10
     runs-on: ubuntu-latest
     steps:
@@ -28,7 +27,6 @@ jobs:
             exit 1
           fi
   build_android:
-    # Keep this job capped at 10 minutes; never raise it unless explicitly asked.
     timeout-minutes: 10
     runs-on: ubuntu-latest
     steps:
@@ -56,7 +54,6 @@ jobs:
         shell: bash
         run: bash ./.github/scripts/verify-packed-example.sh android
   build_ios:
-    # Keep this job capped at 10 minutes; never raise it unless explicitly asked.
     timeout-minutes: 10
     runs-on: macOS-latest
     steps:
@@ -79,7 +76,6 @@ jobs:
         shell: bash
         run: bash ./.github/scripts/verify-packed-example.sh ios
   js:
-    # Keep this job capped at 10 minutes; never raise it unless explicitly asked.
     timeout-minutes: 10
     runs-on: ubuntu-latest
     name: 'Lint and package'

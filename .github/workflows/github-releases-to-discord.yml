@@ -6,7 +6,6 @@ on:
 
 jobs:
   github-releases-to-discord:
-    # Keep this job capped at 10 minutes; never raise it unless explicitly asked.
     timeout-minutes: 10
     runs-on: ubuntu-latest
     steps:

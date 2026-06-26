@@ -17,26 +17,14 @@ Create Home Screen WidgetKit, ActivityKit, and Android widget experiences from C
 <table>
   <tr>
     <td align="center">
-      <img src="./docs/screenshots/home-screen-widget.webp" alt="iOS Home Screen / SpringBoard widget screenshot" width="260" />
-      <br />
-      <sub>iOS Home Screen / SpringBoard</sub>
-    </td>
-    <td align="center">
       <img src="./docs/screenshots/lock-screen-live-activity.webp" alt="iOS Lock Screen Live Activity widget screenshot" width="260" />
       <br />
       <sub>iOS Lock Screen / Live Activity</sub>
     </td>
-  </tr>
-  <tr>
     <td align="center">
       <img src="./docs/screenshots/dynamic-island-widget.webp" alt="iOS Dynamic Island widget screenshot" width="260" />
       <br />
       <sub>iOS Dynamic Island</sub>
-    </td>
-    <td align="center">
-      <img src="./docs/screenshots/android-app-widget.webp" alt="Android AppWidget screenshot" width="260" />
-      <br />
-      <sub>Android AppWidget</sub>
     </td>
   </tr>
 </table>
@@ -1241,7 +1229,9 @@ Structured state payload persisted for an activity.
 
 Construct a type with a set of properties K of type T
 
-<code>{ [P in K]: T; }</code>
+<code>{
+ [P in K]: T;
+ }</code>
 
 
 #### WidgetMessageDirection

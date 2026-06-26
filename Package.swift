@@ -7,22 +7,37 @@ let package = Package(
     products: [
         .library(
             name: "CapgoCapacitorWidgetKit",
-            targets: ["CapgoWidgetKitPlugin"])
+            targets: ["CapgoWidgetKitPlugin"]
+        ),
+        .library(
+            name: "CapgoWidgetKitShared",
+            targets: ["CapgoWidgetKitShared"]
+        )
     ],
     dependencies: [
         .package(url: "https://github.com/ionic-team/capacitor-swift-pm.git", from: "8.0.0")
     ],
     targets: [
         .target(
+            name: "CapgoWidgetKitShared",
+            dependencies: [],
+            path: "ios/Sources/CapgoWidgetKitPlugin",
+            exclude: ["CapgoWidgetKitPlugin.swift"]
+        ),
+        .target(
             name: "CapgoWidgetKitPlugin",
             dependencies: [
+                "CapgoWidgetKitShared",
                 .product(name: "Capacitor", package: "capacitor-swift-pm"),
                 .product(name: "Cordova", package: "capacitor-swift-pm")
             ],
-            path: "ios/Sources/CapgoWidgetKitPlugin"),
+            path: "ios/Sources/CapgoWidgetKitPlugin",
+            sources: ["CapgoWidgetKitPlugin.swift"]
+        ),
         .testTarget(
             name: "CapgoWidgetKitPluginTests",
-            dependencies: ["CapgoWidgetKitPlugin"],
-            path: "ios/Tests/CapgoWidgetKitPluginTests")
+            dependencies: ["CapgoWidgetKitShared"],
+            path: "ios/Tests/CapgoWidgetKitPluginTests"
+        )
     ]
 )

@@ -1,6 +1,6 @@
 // swiftlint:disable function_body_length
 import XCTest
-@testable import CapgoWidgetKitPlugin
+@testable import CapgoWidgetKitShared
 
 final class CapgoWidgetKitPluginTests: XCTestCase {
     func testResolveSvgInterpolatesStateTimerAndMetaScope() {

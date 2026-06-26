@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		2DB9DF60B3635B84890C48B9 /* CapApp-SPM in Frameworks */ = {isa = PBXBuildFile; productRef = BFAFE8AF2D62A402F619D79D /* CapApp-SPM */; };
+		2DB9DF60B3635B84890C48B9 /* CapgoWidgetKitShared in Frameworks */ = {isa = PBXBuildFile; productRef = BFAFE8AF2D62A402F619D79D /* CapgoWidgetKitShared */; };
 		2FAD9763203C412B000D30F8 /* config.xml in Resources */ = {isa = PBXBuildFile; fileRef = 2FAD9762203C412B000D30F8 /* config.xml */; };
 		4D22ABE92AF431CB00220026 /* CapApp-SPM in Frameworks */ = {isa = PBXBuildFile; productRef = 4D22ABE82AF431CB00220026 /* CapApp-SPM */; };
 		50379B232058CBB4000EE86E /* capacitor.config.json in Resources */ = {isa = PBXBuildFile; fileRef = 50379B222058CBB4000EE86E /* capacitor.config.json */; };
@@ -69,7 +69,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				7D89355D08C85D378F37844D /* Foundation.framework in Frameworks */,
-				2DB9DF60B3635B84890C48B9 /* CapApp-SPM in Frameworks */,
+				2DB9DF60B3635B84890C48B9 /* CapgoWidgetKitShared in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -162,7 +162,7 @@
 			);
 			name = ExampleWidgetExtension;
 			packageProductDependencies = (
-				BFAFE8AF2D62A402F619D79D /* CapApp-SPM */,
+				BFAFE8AF2D62A402F619D79D /* CapgoWidgetKitShared */,
 			);
 			productName = ExampleWidgetExtension;
 			productReference = 6806B5FE6888EC4237B05008 /* ExampleWidgetExtension.appex */;
@@ -217,6 +217,7 @@
 			mainGroup = 504EC2FB1FED79650016851F;
 			packageReferences = (
 				D4C12C0A2AAA248700AAC8A2 /* XCLocalSwiftPackageReference "CapApp-SPM" */,
+				D4WIDGET012AAA248700AAC8B2 /* XCLocalSwiftPackageReference "CapgoCapacitorWidgetKit" */,
 			);
 			productRefGroup = 504EC3051FED79650016851F /* Products */;
 			projectDirPath = "";
@@ -538,6 +539,10 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = "CapApp-SPM";
 		};
+		D4WIDGET012AAA248700AAC8B2 /* XCLocalSwiftPackageReference "CapgoCapacitorWidgetKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = "../../../node_modules/@capgo/capacitor-widget-kit";
+		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -546,10 +551,10 @@
 			package = D4C12C0A2AAA248700AAC8A2 /* XCLocalSwiftPackageReference "CapApp-SPM" */;
 			productName = "CapApp-SPM";
 		};
-		BFAFE8AF2D62A402F619D79D /* CapApp-SPM */ = {
+		BFAFE8AF2D62A402F619D79D /* CapgoWidgetKitShared */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = D4C12C0A2AAA248700AAC8A2 /* XCLocalSwiftPackageReference "CapApp-SPM" */;
-			productName = "CapApp-SPM";
+			package = D4WIDGET012AAA248700AAC8B2 /* XCLocalSwiftPackageReference "CapgoCapacitorWidgetKit" */;
+			productName = CapgoWidgetKitShared;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

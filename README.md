@@ -12,6 +12,23 @@ Create Home Screen WidgetKit, ActivityKit, and Android widget experiences from C
 
 <img src="./docs/demo.webp" alt="Demo of capacitor-widget-kit in action" width="300" />
 
+## Widget Screenshots
+
+<table>
+  <tr>
+    <td align="center">
+      <img src="./docs/screenshots/lock-screen-live-activity.webp" alt="iOS Lock Screen Live Activity widget screenshot" width="260" />
+      <br />
+      <sub>iOS Lock Screen / Live Activity</sub>
+    </td>
+    <td align="center">
+      <img src="./docs/screenshots/dynamic-island-widget.webp" alt="iOS Dynamic Island widget screenshot" width="260" />
+      <br />
+      <sub>iOS Dynamic Island</sub>
+    </td>
+  </tr>
+</table>
+
 The plugin has two implementation paths:
 
 - SVG template widgets: store Home Screen, Lock Screen, Dynamic Island, and Android layouts with optional named frames, hotspots, declarative state patches, pause/resume timers, and interaction events. Use this when your widget can be driven by resolved SVG output.
@@ -74,7 +91,7 @@ In your iOS widget extension bundle:
 import ActivityKit
 import SwiftUI
 import WidgetKit
-import CapgoWidgetKitPlugin
+import CapgoWidgetKitShared
 
 @main
 struct ExampleWidgetBundle: WidgetBundle {
@@ -1212,7 +1229,9 @@ Structured state payload persisted for an activity.
 
 Construct a type with a set of properties K of type T
 
-<code>{ [P in K]: T; }</code>
+<code>{
+ [P in K]: T;
+ }</code>
 
 
 #### WidgetMessageDirection

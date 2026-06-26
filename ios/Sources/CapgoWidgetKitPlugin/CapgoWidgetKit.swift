@@ -3,11 +3,11 @@ import Foundation
 import WidgetKit
 #endif
 
-enum CapgoWidgetKitBridgeError: LocalizedError {
+public enum CapgoWidgetKitBridgeError: LocalizedError {
     case missingObject(String)
     case invalidObject(String)
 
-    var errorDescription: String? {
+    public var errorDescription: String? {
         switch self {
         case .missingObject(let name):
             return "The `\(name)` object is required."

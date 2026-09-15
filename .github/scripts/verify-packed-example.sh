@@ -34,6 +34,7 @@ fi
 plugin_name="$(bun -e 'console.log(require("./package.json").name)')"
 cp -R example-app/. "$test_app/"
 cd "$test_app"
+printf '[install]\nlinker = "hoisted"\n' > bunfig.toml
 bun remove "$plugin_name"
 bun add "${packed_packages[0]}"
 bun run build

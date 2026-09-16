@@ -541,7 +541,7 @@
 		};
 		D4WIDGET012AAA248700AAC8B2 /* XCLocalSwiftPackageReference "CapgoCapacitorWidgetKit" */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = "../../../node_modules/@capgo/capacitor-widget-kit";
+			relativePath = "../../node_modules/@capgo/capacitor-widget-kit";
 		};
 /* End XCLocalSwiftPackageReference section */
 

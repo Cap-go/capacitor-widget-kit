@@ -56,6 +56,26 @@ case "$platform" in
       bunx cap add ios
       bunx cap sync ios
     fi
+    pbxproj="ios/App/App.xcodeproj/project.pbxproj"
+    if [ -f "$pbxproj" ]; then
+      plugin_dir="$(bun -e 'console.log(require("path").dirname(require.resolve("@capgo/capacitor-widget-kit/package.json")))')"
+      rel_plugin="$(python3 -c 'import os,sys; print(os.path.relpath(os.path.realpath(sys.argv[1]), sys.argv[2]))' "$plugin_dir" "$PWD/ios/App")"
+      python3 -c "
+from pathlib import Path
+import re
+p = Path('ios/App/App.xcodeproj/project.pbxproj')
+text = p.read_text()
+text, n = re.subn(
+    r'relativePath = \"[^\"]*capacitor-widget-kit[^\"]*\";',
+    'relativePath = \"${rel_plugin}\";',
+    text,
+    count=1,
+)
+if n:
+    p.write_text(text)
+    print('Set CapgoCapacitorWidgetKit package path to ${rel_plugin}')
+"
+    fi
     rm -rf "$HOME/Library/Caches/org.swift.swiftpm/artifacts"/https___github_com_ionic_team_capacitor_swift_pm_releases_download_*
     xcodebuild \
       -project ios/App/App.xcodeproj \

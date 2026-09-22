@@ -19,6 +19,7 @@
 		7D89355D08C85D378F37844D /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 574779EE6E430920F50C1231 /* Foundation.framework */; };
 		7EC1A85865693F43EA3A1299 /* ExampleWidgetExtension.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = 6806B5FE6888EC4237B05008 /* ExampleWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		9503E03379FCA5B0AB2EC61C /* ExampleWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5918E4FE174EC468261C1CF2 /* ExampleWidgetBundle.swift */; };
+		AAD5ECBD96A449298F77691E /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9297C6E915C048A48D4C5F51 /* SceneDelegate.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -61,6 +62,7 @@
 		79DC5F2046804CF16E6C48DD /* ExampleWidgetExtension.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; name = ExampleWidgetExtension.entitlements; path = ExampleWidgetExtension/ExampleWidgetExtension.entitlements; sourceTree = "<group>"; };
 		897C07015DF499C6DF9A493E /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; name = Info.plist; path = ExampleWidgetExtension/Info.plist; sourceTree = "<group>"; };
 		958DCC722DB07C7200EA8C5F /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = debug.xcconfig; path = ../debug.xcconfig; sourceTree = SOURCE_ROOT; };
+		9297C6E915C048A48D4C5F51 /* SceneDelegate.swift */ = {isa = PBXFileReference; name = "SceneDelegate.swift"; path = "SceneDelegate.swift"; sourceTree = "<group>"; fileEncoding = 4; lastKnownFileType = sourcecode.swift; explicitFileType = undefined; includeInIndex = 0; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -123,6 +125,7 @@
 				504EC3131FED79650016851F /* Info.plist */,
 				2FAD9762203C412B000D30F8 /* config.xml */,
 				50B271D01FEDC1A000F3C39B /* public */,
+				9297C6E915C048A48D4C5F51 /* SceneDelegate.swift */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -196,8 +199,8 @@
 		504EC2FC1FED79650016851F /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastSwiftUpdateCheck = 0920;
-				LastUpgradeCheck = 0920;
+				LastSwiftUpdateCheck = 920;
+				LastUpgradeCheck = 920;
 				TargetAttributes = {
 					504EC3031FED79650016851F = {
 						CreatedOnToolsVersion = 9.2;
@@ -266,6 +269,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				504EC3081FED79650016851F /* AppDelegate.swift in Sources */,
+				AAD5ECBD96A449298F77691E /* SceneDelegate.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

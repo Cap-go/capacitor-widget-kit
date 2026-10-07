@@ -12,7 +12,7 @@ Build iOS Home Screen widgets, Lock Screen Live Activities and Android widgets f
 </div>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/Cap-go/capacitor-widget-kit/main/.github/assets/readme-demo.webp" alt="Demo of capacitor-widget-kit showing a Lock Screen Live Activity" width="300" />
+  <img src="./.github/assets/readme-demo.webp" alt="Demo of capacitor-widget-kit showing a Lock Screen Live Activity" width="300" />
 </p>
 
 ## Key features

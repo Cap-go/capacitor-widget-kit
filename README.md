@@ -1,16 +1,28 @@
 # @capgo/capacitor-widget-kit
-<a href="https://capgo.app/"><img src="https://capgo.app/readme-banner.svg?repo=Cap-go/capacitor-widget-kit" alt="Capgo - Instant updates for Capacitor" /></a>
+
+Build iOS Home Screen widgets, Lock Screen Live Activities and Android widgets from your Capacitor app, with SVG templates or fully native widget code.
+
+<a href="https://capgo.app/?ref=plugin_widget_kit"><img src="https://capgo.app/readme-banner.svg?repo=Cap-go/capacitor-widget-kit" alt="Capgo - Instant updates for Capacitor" /></a>
 
 <div align="center">
-  <h2><a href="https://capgo.app/?ref=plugin_widget_kit"> ➡️ Get Instant updates for your App with Capgo</a></h2>
-  <h2><a href="https://capgo.app/consulting/?ref=plugin_widget_kit"> Missing a feature? We’ll build the plugin for you 💪</a></h2>
+  <p><b>Capgo</b>: open-source live updates for Ionic and Capacitor apps. Ship OTA fixes and features instantly, without waiting for app store review.</p>
+  <h2><a href="https://capgo.app/register/?ref=plugin_widget_kit">➡️ Get started for free</a></h2>
+  <p>14-day unlimited free trial. No credit card required</p>
+  <p><a href="https://capgo.app/consulting/?ref=plugin_widget_kit">Missing a feature? We'll build the plugin for you 💪</a></p>
 </div>
 
-Create Home Screen WidgetKit, ActivityKit, and Android widget experiences from Capacitor without forcing one rendering model.
+<p align="center">
+  <img src="https://raw.githubusercontent.com/Cap-go/capacitor-widget-kit/main/.github/assets/readme-demo.webp" alt="Demo of capacitor-widget-kit showing a Lock Screen Live Activity" width="300" />
+</p>
 
-## Demo
+## Key features
 
-<img src="./docs/demo.webp" alt="Demo of capacitor-widget-kit in action" width="300" />
+- **SVG template widgets**: `startTemplateWidget()` and `startTemplateActivity()` store layouts for the Home Screen, Lock Screen, Dynamic Island and Android.
+- **Updates and actions**: `updateTemplateActivity()`, `endTemplateActivity()` and `performTemplateAction()` with declarative state patches and timers.
+- **Interaction events**: `listTemplateEvents()` and `acknowledgeTemplateEvents()` process widget taps in your app.
+- **Native widget sessions**: `startWidgetSession()`, `updateWidgetSession()` and `sendWidgetMessage()` share JSON state with Swift or Kotlin widget code.
+- **Shared storage**: data lives in your App Group on iOS so widgets and the app stay in sync.
+- **Platforms**: iOS, Android and Web. Live Activities need ActivityKit on iOS. Web stores state in `localStorage` for development.
 
 ## Widget Screenshots
 

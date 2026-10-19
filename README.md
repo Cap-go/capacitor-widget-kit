@@ -86,6 +86,24 @@ Example App Group:
 <string>group.app.capgo.widgetkit.exampleapp.widgetkit</string>
 ```
 
+## Siri / App Intents scope
+
+The plugin ships a narrow App Intents layer for in-widget and Live Activity buttons. It does not register Siri phrases, Shortcuts tiles, or searchable intent catalogs.
+
+**Supported today**
+
+- iOS 17+ `LiveActivityIntent` types: `CapgoTemplateActionIntent` (template hotspot buttons on Home Screen widgets and Live Activities) and `CompleteSetIntent` (workout example Live Activity control).
+- Capacitor APIs `performTemplateAction()` and `listTemplateEvents()` to run template actions from the app and read the shared interaction event log.
+
+**Not supported**
+
+- Siri voice phrases and Shortcuts discovery
+- `AppShortcutsProvider`
+- App Intents entity catalogs
+- Spotlight indexing for intents
+
+See [Siri, Shortcuts, widgets, and App Intents](https://capgo.app/docs/plugins/siri-shortcuts-widgets-and-intents/) for the full integration guide.
+
 ## Native Widget Code
 
 The plugin ships the native pieces a widget extension or Android widget can use:

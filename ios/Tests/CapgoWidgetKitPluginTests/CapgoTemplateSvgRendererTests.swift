@@ -93,6 +93,23 @@ final class CapgoTemplateSvgRendererTests: XCTestCase {
         XCTAssertTrue(normalized.contains(#"</g><text font-family="Georgia">C"#))
     }
 
+    func testFontNormalizerHandlesQuotedAngleBracketsAndComments() throws {
+        let markup = #"<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg" aria-label="a > b" viewBox="0 0 10 10">"#
+            + #"<!-- <g font-weight="bold"> --><text data-x='1 > 0' font-weight="700">A</text>"#
+            + ##"<rect width="10" height="10" fill="#ff0000"/></svg>"##
+        let normalized = CapgoTemplateSvgFontNormalizer.normalize(markup)
+
+        XCTAssertTrue(normalized.hasPrefix(
+            #"<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg" aria-label="a > b" viewBox="0 0 10 10" font-family="'Helvetica Neue'">"#
+        ))
+        XCTAssertTrue(normalized.contains(#"<!-- <g font-weight="bold"> -->"#))
+        XCTAssertTrue(normalized.contains(
+            #"<text data-x='1 > 0' font-weight="700" font-family="'HelveticaNeue-Bold', 'Helvetica Neue'">A"#
+        ))
+        XCTAssertTrue(XMLParser(data: Data(normalized.utf8)).parse())
+        XCTAssertNotNil(CapgoTemplateSvgRenderer.render(svg: markup, size: CGSize(width: 10, height: 10), scale: 1))
+    }
+
     func testFontNormalizerKeepsGenericFallbacksFromInheritedFamilies() {
         let normalized = CapgoTemplateSvgFontNormalizer.normalize(
             #"<svg font-family="Avenir Next, sans-serif"><text font-weight="700">A</text><textPath font-weight="400"/></svg>"#

@@ -74,6 +74,7 @@ bunx cap sync android
 ## iOS Requirements
 
 - Add a Widget Extension target for Home Screen / SpringBoard widgets.
+- Xcode 26 or later (the Capacitor 8 baseline). The built-in SVG renderer depends on SwiftDraw, which needs a Swift 6 toolchain through both SwiftPM and CocoaPods.
 - iOS 17+ is recommended for interactive Home Screen widget and Live Activity buttons.
 - Add `NSSupportsLiveActivities` to the app `Info.plist` when using ActivityKit.
 - Add the same App Group to the app target and the widget extension target.

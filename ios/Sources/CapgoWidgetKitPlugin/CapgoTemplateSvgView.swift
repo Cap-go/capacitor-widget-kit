@@ -54,7 +54,11 @@ enum CapgoTemplateSvgFontNormalizer {
 
     private static let genericFamilies: Set<String> = ["serif", "sans-serif", "monospace", "cursive", "fantasy"]
     // swiftlint:disable force_try
-    private static let tagPattern = try! NSRegularExpression(pattern: #"<(/?)([A-Za-z][\w:.-]*)([^>]*)>"#)
+    // Comments, CDATA, and declarations match the first branch and pass through untouched; attribute
+    // values are matched as quoted strings so a literal `>` inside them does not end the tag.
+    private static let tagPattern = try! NSRegularExpression(
+        pattern: #"<!--[\s\S]*?-->|<!\[CDATA\[[\s\S]*?\]\]>|<[?!][^>]*>|<(/?)([A-Za-z][\w:.-]*)((?:[^>"']|"[^"]*"|'[^']*')*)>"#
+    )
     private static let weightPattern = try! NSRegularExpression(pattern: #"\sfont-weight\s*=\s*(?:"([^"]*)"|'([^']*)')"#)
     private static let familyPattern = try! NSRegularExpression(pattern: #"\sfont-family\s*=\s*(?:"([^"]*)"|'([^']*)')"#)
     // swiftlint:enable force_try
@@ -75,6 +79,10 @@ enum CapgoTemplateSvgFontNormalizer {
         for match in tagPattern.matches(in: svg, range: NSRange(location: 0, length: source.length)) {
             result += source.substring(with: NSRange(location: cursor, length: match.range.location - cursor))
             cursor = match.range.location + match.range.length
+            guard match.range(at: 2).location != NSNotFound else {
+                result += source.substring(with: match.range)
+                continue
+            }
             let name = source.substring(with: match.range(at: 2))
             if match.range(at: 1).length > 0 {
                 _ = scopes.popLast()
@@ -225,9 +233,10 @@ public extension CapgoTemplateSvgView where Fallback == EmptyView {
 }
 
 // MARK: - Built-in renderer defaults
+// The placeholder doubles as the fallback when the SVG markup cannot be rendered.
 
 @available(iOS 16.0, *)
-public extension CapgoTemplateSurfaceView where SVGContent == CapgoTemplateSvgView<EmptyView> {
+public extension CapgoTemplateSurfaceView where SVGContent == CapgoTemplateSvgView<Placeholder> {
     init(
         layout: CapgoResolvedTemplateLayout?,
         showsHotspots: Bool = true,
@@ -236,14 +245,14 @@ public extension CapgoTemplateSurfaceView where SVGContent == CapgoTemplateSvgVi
         self.init(
             layout: layout,
             showsHotspots: showsHotspots,
-            svgContent: { CapgoTemplateSvgView(layout: $0) },
+            svgContent: { CapgoTemplateSvgView(layout: $0, fallback: placeholder) },
             placeholder: placeholder
         )
     }
 }
 
 @available(iOS 16.0, *)
-public extension CapgoTemplateWidgetSurface where SVGContent == CapgoTemplateSvgView<EmptyView> {
+public extension CapgoTemplateWidgetSurface where SVGContent == CapgoTemplateSvgView<Placeholder> {
     init(
         activityId: String,
         surface: CapgoTemplateSurface = .lockScreen,
@@ -258,14 +267,14 @@ public extension CapgoTemplateWidgetSurface where SVGContent == CapgoTemplateSvg
             bundle: bundle,
             showsHotspots: showsHotspots,
             now: now,
-            svgContent: { CapgoTemplateSvgView(layout: $0) },
+            svgContent: { CapgoTemplateSvgView(layout: $0, fallback: placeholder) },
             placeholder: placeholder
         )
     }
 }
 
 @available(iOS 16.0, *)
-public extension CapgoTemplateLatestWidgetSurface where SVGContent == CapgoTemplateSvgView<EmptyView> {
+public extension CapgoTemplateLatestWidgetSurface where SVGContent == CapgoTemplateSvgView<Placeholder> {
     init(
         surface: CapgoTemplateSurface = .lockScreen,
         status: String? = "active",
@@ -280,7 +289,7 @@ public extension CapgoTemplateLatestWidgetSurface where SVGContent == CapgoTempl
             bundle: bundle,
             showsHotspots: showsHotspots,
             now: now,
-            svgContent: { CapgoTemplateSvgView(layout: $0) },
+            svgContent: { CapgoTemplateSvgView(layout: $0, fallback: placeholder) },
             placeholder: placeholder
         )
     }
@@ -288,7 +297,7 @@ public extension CapgoTemplateLatestWidgetSurface where SVGContent == CapgoTempl
 
 #if canImport(WidgetKit)
 @available(iOS 16.0, *)
-public extension CapgoTemplateHomeWidgetView where SVGContent == CapgoTemplateSvgView<EmptyView> {
+public extension CapgoTemplateHomeWidgetView where SVGContent == CapgoTemplateSvgView<Placeholder> {
     init(
         entry: CapgoTemplateWidgetEntry,
         showsHotspots: Bool = true,
@@ -297,7 +306,7 @@ public extension CapgoTemplateHomeWidgetView where SVGContent == CapgoTemplateSv
         self.init(
             entry: entry,
             showsHotspots: showsHotspots,
-            svgContent: { CapgoTemplateSvgView(layout: $0) },
+            svgContent: { CapgoTemplateSvgView(layout: $0, fallback: placeholder) },
             placeholder: placeholder
         )
     }

@@ -1,5 +1,8 @@
 import Capacitor
+#if canImport(CapgoWidgetKitShared)
+// SwiftPM splits the shared widget code into its own module; CocoaPods compiles it into this one.
 import CapgoWidgetKitShared
+#endif
 import Foundation
 
 @objc(CapgoWidgetKitPlugin)

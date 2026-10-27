@@ -74,6 +74,7 @@ bunx cap sync android
 ## iOS Requirements
 
 - Add a Widget Extension target for Home Screen / SpringBoard widgets.
+- Xcode 26 or later (the Capacitor 8 baseline). The built-in SVG renderer depends on SwiftDraw, which needs a Swift 6 toolchain through both SwiftPM and CocoaPods.
 - iOS 17+ is recommended for interactive Home Screen widget and Live Activity buttons.
 - Add `NSSupportsLiveActivities` to the app `Info.plist` when using ActivityKit.
 - Add the same App Group to the app target and the widget extension target.
@@ -112,7 +113,8 @@ The plugin ships the native pieces a widget extension or Android widget can use:
 - `CapgoTemplateActionIntent` for interactive iOS template buttons
 - `CapgoTemplateWidgetTimelineProvider` and `CapgoTemplateHomeWidgetView` for real iOS Home Screen / SpringBoard widgets backed by WidgetKit timelines
 - `CapgoTemplateWidgetBridge` to load a stored SVG activity and resolve one surface into `svg + width/height + frameId + hotspots + metadata`
-- `CapgoTemplateSurfaceView`, `CapgoTemplateWidgetSurface`, and `CapgoTemplateLatestWidgetSurface` to place a rendered SVG view under native hotspot buttons in SwiftUI
+- `CapgoTemplateSvgView` and `CapgoTemplateSvgRenderer` to render the resolved SVG natively (built-in, powered by [SwiftDraw](https://github.com/swhitty/SwiftDraw))
+- `CapgoTemplateSurfaceView`, `CapgoTemplateWidgetSurface`, and `CapgoTemplateLatestWidgetSurface` to place the rendered SVG under native hotspot buttons in SwiftUI
 - `CapgoNativeWidgetBridge` to load full-native widget sessions and exchange async messages without using SVG templates
 - `CapgoTemplateActionReceiver` and `CapgoTemplateWidgetBridge` for Android template widgets
 
@@ -140,9 +142,7 @@ struct ExampleTemplateHomeWidget: Widget {
 
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: CapgoTemplateWidgetTimelineProvider()) { entry in
-            CapgoTemplateHomeWidgetView(entry: entry) { layout in
-                MySvgRenderer(svg: layout.svg)
-            } placeholder: {
+            CapgoTemplateHomeWidgetView(entry: entry) {
                 Text("No active widget")
             }
         }
@@ -153,18 +153,30 @@ struct ExampleTemplateHomeWidget: Widget {
 }
 ```
 
-Use the SwiftUI surface helpers when a custom WidgetKit view should be designed from JS but rendered by native widget code:
+The SVG is rendered on iOS by the built-in `CapgoTemplateSvgView`, just like Android renders it with AndroidSVG. Use the SwiftUI surface helpers to place a template designed from JS inside your own WidgetKit or Live Activity views:
 
 ```swift
 CapgoTemplateLatestWidgetSurface {
-    layout in
-    MySvgRenderer(svg: layout.svg)
+    Text("No active widget")
+}
+```
+
+Pass an `svgContent` closure to wrap or replace the built-in renderer:
+
+```swift
+CapgoTemplateLatestWidgetSurface { layout in
+    CapgoTemplateSvgView(layout: layout)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
 } placeholder: {
     Text("No active widget")
 }
 ```
 
 The helper positions `CapgoTemplateActionIntent` buttons over the resolved SVG hotspots on iOS 17+. See `example-app/widget-extension/ExampleWidgetBundle.swift` for a complete Home Screen widget and Live Activity scaffold.
+
+### iOS SVG support
+
+The iOS renderer draws the SVG into a bitmap with CoreGraphics, so it works inside widget extensions and Live Activities where web views are not available. It supports shapes, paths, gradients, transforms, clip paths, masks, patterns, `<use>`, `<text>`, and images embedded as `data:` URIs through `xlink:href`. Text defaults to Helvetica Neue (sans-serif); bold `font-weight` values (`600` and above, or `bold`) pick the bold face of the same family. Animations and scripts are ignored, and some SVG filters are not supported. Keep templates simple and preview them on both platforms.
 
 ## SVG Template Usage
 
@@ -1260,7 +1272,7 @@ Structured state payload persisted for an activity.
 
 Construct a type with a set of properties K of type T
 
-<code>{ [P in K]: T; }</code>
+<code>{ [P in K]: T; }</code>
 
 
 #### WidgetMessageDirection

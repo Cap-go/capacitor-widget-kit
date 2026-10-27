@@ -19,9 +19,8 @@ struct ExampleTemplateHomeWidget: Widget {
 
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: CapgoTemplateWidgetTimelineProvider()) { entry in
-            CapgoTemplateHomeWidgetView(entry: entry) { layout in
-                ExampleTemplateSurfaceCard(layout: layout)
-            } placeholder: {
+            // Renders the resolved SVG with the built-in renderer and overlays hotspot buttons.
+            CapgoTemplateHomeWidgetView(entry: entry) {
                 ExampleTemplateSurfaceCard(layout: nil)
             }
         }
@@ -38,8 +37,10 @@ struct ExampleTemplateLiveActivityWidget: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: CapgoTemplateActivityAttributes.self) { context in
             let layout = resolvedLayout(activityId: context.attributes.activityId, surface: .lockScreen)
-            ExampleTemplateSurfaceCard(layout: layout)
-                .widgetURL(layout?.openUrl.flatMap(URL.init(string:)))
+            CapgoTemplateSurfaceView(layout: layout) {
+                ExampleTemplateSurfaceCard(layout: nil)
+            }
+            .widgetURL(layout?.openUrl.flatMap(URL.init(string:)))
         } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.center) {
@@ -87,7 +88,7 @@ private struct ExampleTemplateSurfaceCard: View {
                     .font(.headline)
                     .foregroundStyle(.white)
 
-                Text("Plug your SVG renderer here")
+                Text("Waiting for a template activity")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(Color.green.opacity(0.9))
 

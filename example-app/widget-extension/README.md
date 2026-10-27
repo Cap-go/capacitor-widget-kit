@@ -6,9 +6,10 @@ The sample is intentionally generic:
 
 - it reads the shared template activity through `CapgoTemplateWidgetBridge`
 - it resolves the selected surface into `svg + hotspots + metadata`
+- it renders the SVG with the built-in `CapgoTemplateSvgView`
 - it wires hotspot buttons through `CapgoTemplateActionIntent`
 
-The sample view uses a placeholder card instead of a full SVG renderer. Replace the placeholder body with your renderer of choice while keeping the same bridge and action intent wiring.
+The Home Screen widget and the Live Activity lock screen render the resolved SVG with the plugin's built-in `CapgoTemplateSvgView`. The placeholder card is shown only when no template activity is stored yet. Pass an `svgContent` closure to `CapgoTemplateHomeWidgetView` or `CapgoTemplateSurfaceView` if you want to wrap or replace the built-in renderer.
 
 Required setup in both the app target and the widget extension target:
 

@@ -13,5 +13,6 @@ Pod::Spec.new do |s|
   s.source_files = 'ios/Sources/**/*.{swift,h,m,c,cc,mm,cpp}'
   s.ios.deployment_target = '16.0'
   s.dependency 'Capacitor'
+  s.dependency 'SwiftDraw', '~> 0.29.0'
   s.swift_version = '5.9'
 end

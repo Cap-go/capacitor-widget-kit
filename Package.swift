@@ -15,12 +15,15 @@ let package = Package(
         )
     ],
     dependencies: [
-        .package(url: "https://github.com/ionic-team/capacitor-swift-pm.git", from: "8.0.0")
+        .package(url: "https://github.com/ionic-team/capacitor-swift-pm.git", from: "8.0.0"),
+        .package(url: "https://github.com/swhitty/SwiftDraw.git", .upToNextMinor(from: "0.29.0"))
     ],
     targets: [
         .target(
             name: "CapgoWidgetKitShared",
-            dependencies: [],
+            dependencies: [
+                .product(name: "SwiftDraw", package: "SwiftDraw")
+            ],
             path: "ios/Sources/CapgoWidgetKitPlugin",
             exclude: ["CapgoWidgetKitPlugin.swift"]
         ),

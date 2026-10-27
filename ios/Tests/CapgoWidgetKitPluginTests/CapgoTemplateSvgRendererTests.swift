@@ -82,6 +82,17 @@ final class CapgoTemplateSvgRendererTests: XCTestCase {
         XCTAssertTrue(normalized.contains(#"<textPath font-weight="400" font-family="'Helvetica Neue'"/>"#))
     }
 
+    func testFontNormalizerCarriesInheritedBoldThroughFamilyOverrides() {
+        let normalized = CapgoTemplateSvgFontNormalizer.normalize(
+            #"<svg><g font-weight="bold"><text font-family="Georgia">A</text>"#
+                + #"<text font-family="Menlo" font-weight="400">B</text></g><text font-family="Georgia">C</text></svg>"#
+        )
+
+        XCTAssertTrue(normalized.contains(#"<text font-family="'Georgia-Bold', 'Georgia'">A"#))
+        XCTAssertTrue(normalized.contains(#"<text font-weight="400" font-family="'Menlo'">B"#))
+        XCTAssertTrue(normalized.contains(#"</g><text font-family="Georgia">C"#))
+    }
+
     func testFontNormalizerKeepsGenericFallbacksFromInheritedFamilies() {
         let normalized = CapgoTemplateSvgFontNormalizer.normalize(
             #"<svg font-family="Avenir Next, sans-serif"><text font-weight="700">A</text><textPath font-weight="400"/></svg>"#

@@ -59,29 +59,34 @@ enum CapgoTemplateSvgFontNormalizer {
     private static let familyPattern = try! NSRegularExpression(pattern: #"\sfont-family\s*=\s*(?:"([^"]*)"|'([^']*)')"#)
     // swiftlint:enable force_try
 
+    /// Declared (pre-rewrite) font state in effect for an open element, inherited by its descendants.
+    private struct FontScope {
+        var families: [String]?
+        var isBold = false
+    }
+
     static func normalize(_ svg: String) -> String {
         let source = svg as NSString
         var result = ""
         var cursor = 0
-        // Declared (pre-rewrite) font families in effect for each open element, so weights on
-        // descendants resolve against the inherited family instead of the default one.
-        var inheritedFamilies: [[String]?] = []
+        // Weights and families inherit independently, so each element resolves its face against
+        // the family and weight in effect from its ancestors.
+        var scopes: [FontScope] = []
         for match in tagPattern.matches(in: svg, range: NSRange(location: 0, length: source.length)) {
             result += source.substring(with: NSRange(location: cursor, length: match.range.location - cursor))
             cursor = match.range.location + match.range.length
             let name = source.substring(with: match.range(at: 2))
             if match.range(at: 1).length > 0 {
-                _ = inheritedFamilies.popLast()
+                _ = scopes.popLast()
                 result += source.substring(with: match.range)
                 continue
             }
 
             let attributes = source.substring(with: match.range(at: 3))
-            let inherited = inheritedFamilies.last ?? nil
-            let (rewritten, effective) = rewrite(attributes, inherited: inherited, isRoot: name == "svg")
+            let (rewritten, scope) = rewrite(attributes, inherited: scopes.last ?? FontScope(), isRoot: name == "svg")
             result += "<\(name)\(rewritten)>"
             if !attributes.hasSuffix("/") {
-                inheritedFamilies.append(effective)
+                scopes.append(scope)
             }
         }
         result += source.substring(from: cursor)
@@ -90,9 +95,9 @@ enum CapgoTemplateSvgFontNormalizer {
 
     private static func rewrite(
         _ attributes: String,
-        inherited: [String]?,
+        inherited: FontScope,
         isRoot: Bool
-    ) -> (attributes: String, effectiveFamilies: [String]?) {
+    ) -> (attributes: String, scope: FontScope) {
         var body = attributes
         var closing = ""
         if body.hasSuffix("/") {
@@ -101,21 +106,22 @@ enum CapgoTemplateSvgFontNormalizer {
         }
 
         let declaredFamilies = value(of: familyPattern, in: body).map(parseFamilies)
-        let effectiveFamilies = declaredFamilies ?? inherited
-        let families = effectiveFamilies ?? [regularFamily]
+        let declaredBold = value(of: weightPattern, in: body).map(isBold)
+        let scope = FontScope(
+            families: declaredFamilies ?? inherited.families,
+            isBold: declaredBold ?? inherited.isBold
+        )
+        let families = scope.families ?? [regularFamily]
         let replacement: [String]?
-        switch value(of: weightPattern, in: body).map(isBold) {
-        case true?:
-            replacement = families.compactMap(boldFace) + families
-        case false?:
-            // Restate the inherited family so a bold face set on an ancestor does not leak in.
-            replacement = declaredFamilies == nil ? families : nil
-        case nil:
+        if declaredBold != nil || (declaredFamilies != nil && scope.isBold) {
+            // Restating the family on regular weights keeps an ancestor's bold face from leaking in.
+            replacement = scope.isBold ? families.compactMap(boldFace) + families : families
+        } else {
             replacement = isRoot && declaredFamilies == nil ? [regularFamily] : nil
         }
 
         guard let replacement else {
-            return (attributes, effectiveFamilies)
+            return (attributes, scope)
         }
         body = familyPattern.stringByReplacingMatches(
             in: body,
@@ -125,7 +131,7 @@ enum CapgoTemplateSvgFontNormalizer {
         let serialized = unique(replacement)
             .map { genericFamilies.contains($0) ? $0 : "'\($0)'" }
             .joined(separator: ", ")
-        return ("\(body) font-family=\"\(serialized)\"\(closing)", effectiveFamilies)
+        return ("\(body) font-family=\"\(serialized)\"\(closing)", scope)
     }
 
     private static func value(of pattern: NSRegularExpression, in text: String) -> String? {

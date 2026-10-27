@@ -73,19 +73,43 @@ final class CapgoTemplateSvgRendererTests: XCTestCase {
 
     func testFontNormalizerMapsBoldWeightsToBoldFaces() {
         let normalized = CapgoTemplateSvgFontNormalizer.normalize(
-            #"<svg font-family="Avenir Next, sans-serif"><text font-weight="700">A</text>"#
+            #"<svg><text font-weight="700">A</text>"#
                 + #"<text font-family="serif" font-weight='bold'>B</text><textPath font-weight="400"/></svg>"#
         )
 
-        XCTAssertTrue(normalized.contains(#"<svg font-family="Avenir Next, sans-serif">"#))
         XCTAssertTrue(normalized.contains(#"<text font-weight="700" font-family="'HelveticaNeue-Bold', 'Helvetica Neue'">"#))
         XCTAssertTrue(normalized.contains(#"<text font-weight='bold' font-family="'TimesNewRomanPS-BoldMT', serif">"#))
         XCTAssertTrue(normalized.contains(#"<textPath font-weight="400" font-family="'Helvetica Neue'"/>"#))
     }
 
-    func testFontNormalizerKeepsExplicitFamiliesAndOtherTags() {
-        let markup = #"<svg font-family="Menlo"><rect font-weight="700"/><text font-family="Georgia">A</text></svg>"#
+    func testFontNormalizerKeepsGenericFallbacksFromInheritedFamilies() {
+        let normalized = CapgoTemplateSvgFontNormalizer.normalize(
+            #"<svg font-family="Avenir Next, sans-serif"><text font-weight="700">A</text><textPath font-weight="400"/></svg>"#
+        )
+
+        XCTAssertTrue(normalized.contains(#"<svg font-family="Avenir Next, sans-serif">"#))
+        XCTAssertTrue(normalized.contains(
+            #"<text font-weight="700" font-family="'AvenirNext-Bold', 'HelveticaNeue-Bold', 'Avenir Next', sans-serif">"#
+        ))
+        XCTAssertTrue(normalized.contains(#"<textPath font-weight="400" font-family="'Avenir Next', sans-serif"/>"#))
+    }
+
+    func testFontNormalizerKeepsExplicitFamiliesWithoutWeights() {
+        let markup = #"<svg font-family="Menlo"><rect width="1"/><text font-family="Georgia">A</text></svg>"#
         XCTAssertEqual(CapgoTemplateSvgFontNormalizer.normalize(markup), markup)
+    }
+
+    func testFontNormalizerResolvesWeightsAgainstInheritedFamilies() {
+        let normalized = CapgoTemplateSvgFontNormalizer.normalize(
+            #"<svg font-family="Menlo"><g><text font-weight="700">A</text></g>"#
+                + #"<g font-family="Georgia" font-weight="bold"><text font-weight="400">B</text></g>"#
+                + #"<text font-weight="normal">C</text></svg>"#
+        )
+
+        XCTAssertTrue(normalized.contains(#"<text font-weight="700" font-family="'Menlo-Bold', 'Menlo'">A"#))
+        XCTAssertTrue(normalized.contains(#"<g font-weight="bold" font-family="'Georgia-Bold', 'Georgia'">"#))
+        XCTAssertTrue(normalized.contains(#"<text font-weight="400" font-family="'Georgia'">B"#))
+        XCTAssertTrue(normalized.contains(#"</g><text font-weight="normal" font-family="'Menlo'">C"#))
     }
 
     func testBoldTextRendersHeavierThanRegularText() throws {

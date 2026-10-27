@@ -47,14 +47,14 @@ public enum CapgoTemplateSvgRenderer {
 }
 
 /// SwiftDraw resolves text fonts by face name only: it ignores `font-weight` and falls back to Times.
-/// This rewrites `font-family` on text-bearing elements so templates render sans-serif by default and
-/// bold weights pick a bold face, matching the Android renderer output.
+/// This rewrites `font-family` where a weight is declared, resolving the family inherited from ancestors,
+/// so templates render sans-serif by default and bold weights pick a bold face, matching Android output.
 enum CapgoTemplateSvgFontNormalizer {
     static let regularFamily = "Helvetica Neue"
 
     private static let genericFamilies: Set<String> = ["serif", "sans-serif", "monospace", "cursive", "fantasy"]
     // swiftlint:disable force_try
-    private static let tagPattern = try! NSRegularExpression(pattern: #"<(svg|g|text|tspan|textPath|a)(?=[\s/>])([^>]*)>"#)
+    private static let tagPattern = try! NSRegularExpression(pattern: #"<(/?)([A-Za-z][\w:.-]*)([^>]*)>"#)
     private static let weightPattern = try! NSRegularExpression(pattern: #"\sfont-weight\s*=\s*(?:"([^"]*)"|'([^']*)')"#)
     private static let familyPattern = try! NSRegularExpression(pattern: #"\sfont-family\s*=\s*(?:"([^"]*)"|'([^']*)')"#)
     // swiftlint:enable force_try
@@ -63,18 +63,36 @@ enum CapgoTemplateSvgFontNormalizer {
         let source = svg as NSString
         var result = ""
         var cursor = 0
+        // Declared (pre-rewrite) font families in effect for each open element, so weights on
+        // descendants resolve against the inherited family instead of the default one.
+        var inheritedFamilies: [[String]?] = []
         for match in tagPattern.matches(in: svg, range: NSRange(location: 0, length: source.length)) {
             result += source.substring(with: NSRange(location: cursor, length: match.range.location - cursor))
-            let name = source.substring(with: match.range(at: 1))
-            let attributes = source.substring(with: match.range(at: 2))
-            result += "<\(name)\(rewrite(attributes, isRoot: name == "svg"))>"
             cursor = match.range.location + match.range.length
+            let name = source.substring(with: match.range(at: 2))
+            if match.range(at: 1).length > 0 {
+                _ = inheritedFamilies.popLast()
+                result += source.substring(with: match.range)
+                continue
+            }
+
+            let attributes = source.substring(with: match.range(at: 3))
+            let inherited = inheritedFamilies.last ?? nil
+            let (rewritten, effective) = rewrite(attributes, inherited: inherited, isRoot: name == "svg")
+            result += "<\(name)\(rewritten)>"
+            if !attributes.hasSuffix("/") {
+                inheritedFamilies.append(effective)
+            }
         }
         result += source.substring(from: cursor)
         return result
     }
 
-    private static func rewrite(_ attributes: String, isRoot: Bool) -> String {
+    private static func rewrite(
+        _ attributes: String,
+        inherited: [String]?,
+        isRoot: Bool
+    ) -> (attributes: String, effectiveFamilies: [String]?) {
         var body = attributes
         var closing = ""
         if body.hasSuffix("/") {
@@ -83,19 +101,21 @@ enum CapgoTemplateSvgFontNormalizer {
         }
 
         let declaredFamilies = value(of: familyPattern, in: body).map(parseFamilies)
-        let families = declaredFamilies ?? [regularFamily]
+        let effectiveFamilies = declaredFamilies ?? inherited
+        let families = effectiveFamilies ?? [regularFamily]
         let replacement: [String]?
         switch value(of: weightPattern, in: body).map(isBold) {
         case true?:
             replacement = families.compactMap(boldFace) + families
         case false?:
-            replacement = declaredFamilies == nil ? [regularFamily] : nil
+            // Restate the inherited family so a bold face set on an ancestor does not leak in.
+            replacement = declaredFamilies == nil ? families : nil
         case nil:
             replacement = isRoot && declaredFamilies == nil ? [regularFamily] : nil
         }
 
         guard let replacement else {
-            return attributes
+            return (attributes, effectiveFamilies)
         }
         body = familyPattern.stringByReplacingMatches(
             in: body,
@@ -105,7 +125,7 @@ enum CapgoTemplateSvgFontNormalizer {
         let serialized = unique(replacement)
             .map { genericFamilies.contains($0) ? $0 : "'\($0)'" }
             .joined(separator: ", ")
-        return "\(body) font-family=\"\(serialized)\"\(closing)"
+        return ("\(body) font-family=\"\(serialized)\"\(closing)", effectiveFamilies)
     }
 
     private static func value(of pattern: NSRegularExpression, in text: String) -> String? {

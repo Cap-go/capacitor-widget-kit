@@ -16,6 +16,17 @@ Build iOS Home Screen widgets, Lock Screen Live Activities and Android widgets f
   <img src="./.github/assets/readme-demo.webp" alt="Demo of capacitor-widget-kit showing a Lock Screen Live Activity" width="300" />
 </p>
 
+## Built and maintained with AI
+
+We build, improve and fix our plugins with heavy use of AI. Capgo the product is mostly AI-optional for you; the AI is our own engineering system, and the speed it gives us is part of what you pay for.
+
+- Most plugin issues get a fix pull request the same day, often within a couple of hours, and are usually resolved in one to two days.
+- Every pull request is reviewed automatically by our AI review system, usually within minutes.
+- Our AI pre-checks tests, code review, conventions and security, then a human validates and merges.
+- In the last 90 days, 95% of plugin issues were resolved.
+
+[Learn more about how we build with AI](https://capgo.app/docs/plugins/ai-engineering/)
+
 ## Key features
 
 - **SVG template widgets**: `startTemplateWidget()` and `startTemplateActivity()` store layouts for the Home Screen, Lock Screen, Dynamic Island and Android.
